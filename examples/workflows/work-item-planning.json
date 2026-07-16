@@ -1,0 +1,31 @@
+{
+  "id": "work-item-planning",
+  "name": "Work Item Planning",
+  "description": "Normalizes source context, defines requirements, and produces an approval-ready repository plan using reusable Agent nodes.",
+  "limits": { "maxDurationMs": 1800000, "maxAgentRuns": 3, "maxToolRuns": 0 },
+  "inputSchema": {
+    "type": "object",
+    "required": ["workItemId", "source", "repoProfile"],
+    "properties": {
+      "workItemId": { "type": "string" },
+      "source": { "type": "object", "properties": {} },
+      "references": { "type": "array", "items": { "type": "string" } },
+      "repoProfile": { "type": "string" }
+    }
+  },
+  "nodes": [
+    { "id": "start", "type": "start" },
+    { "id": "source-intake", "type": "agent", "agentId": "source-intake-agent", "input": { "workItemId": "$input.workItemId", "source": "$input.source", "references": "$input.references" } },
+    { "id": "requirements", "type": "agent", "agentId": "requirement-analyst", "input": { "sourceSummary": "$nodes.source-intake.output.sourceSummary" } },
+    { "id": "repo-plan", "type": "agent", "agentId": "repo-planner-agent", "input": { "requirement": "$nodes.requirements.output.goal", "repoProfile": "$input.repoProfile", "acceptanceCriteria": "$nodes.requirements.output.acceptanceCriteria" } },
+    { "id": "approval", "type": "approval", "prompt": "Review the requirements and repository plan before implementation starts." },
+    { "id": "end", "type": "end", "output": "$nodes.repo-plan.output" }
+  ],
+  "edges": [
+    { "from": "start", "to": "source-intake" },
+    { "from": "source-intake", "to": "requirements" },
+    { "from": "requirements", "to": "repo-plan" },
+    { "from": "repo-plan", "to": "approval" },
+    { "from": "approval", "to": "end" }
+  ]
+}

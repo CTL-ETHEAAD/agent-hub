@@ -1,0 +1,25 @@
+{
+  "id": "isolated-implementation",
+  "name": "Isolated Implementation",
+  "description": "Implements an approved plan in an isolated worktree with scoped validation.",
+  "inputSchema": {
+    "type": "object",
+    "required": ["approvedPlan", "worktreePath"],
+    "properties": {
+      "approvedPlan": { "type": "string" },
+      "worktreePath": { "type": "string" }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "required": ["changedFiles", "testResults", "summary"],
+    "properties": {
+      "changedFiles": { "type": "array", "items": { "type": "string" } },
+      "testResults": { "type": "array", "items": { "type": "string" } },
+      "summary": { "type": "string" }
+    }
+  },
+  "allowedTools": ["repo.read", "repo.write", "test.run"],
+  "riskNotes": ["Requires an isolated worktree.", "Does not permit delivery actions."],
+  "instructionPath": "templates/skills/isolated-implementation/SKILL.md"
+}

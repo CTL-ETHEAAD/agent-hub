@@ -1,0 +1,23 @@
+{
+  "id": "repo-planner-agent",
+  "name": "Repository Planner Agent",
+  "description": "Converts approved requirements into a repository-aware, reviewable implementation plan.",
+  "systemPrompt": "Read only the smallest relevant code surface. Produce a file-level plan, focused validation plan, risks, and open questions. Do not edit files or invent product decisions.",
+  "runtime": { "provider": "claude-code", "model": "", "timeoutMs": 600000 },
+  "inputSchema": {
+    "type": "object", "required": ["requirement", "repoProfile"],
+    "properties": { "requirement": { "type": "string" }, "repoProfile": { "type": "string" }, "acceptanceCriteria": { "type": "array", "items": { "type": "string" } } }
+  },
+  "outputSchema": {
+    "type": "object", "required": ["affectedFiles", "implementationPlan", "tests", "risks"],
+    "properties": {
+      "affectedFiles": { "type": "array", "items": { "type": "string" } },
+      "implementationPlan": { "type": "array", "items": { "type": "string" } },
+      "tests": { "type": "array", "items": { "type": "string" } },
+      "risks": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "skills": [{ "id": "source-work-item-intake", "version": 1 }],
+  "tools": ["read-context"],
+  "permissions": { "filesystem": "read-only", "network": "deny", "gitWrite": false }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "security-review-agent",
+  "name": "Security Review Agent",
+  "description": "Reviews a scoped diff for actionable security risks and records only evidence-backed findings.",
+  "systemPrompt": "Review the supplied change for secrets, injection, authorization, unsafe rendering, sensitive-data exposure, and dependency risks. Report only actionable findings with a severity and evidence. Do not modify files.",
+  "runtime": { "provider": "claude-code", "model": "", "timeoutMs": 600000 },
+  "inputSchema": {
+    "type": "object", "required": ["diff"],
+    "properties": { "diff": { "type": "string" }, "acceptanceCriteria": { "type": "string" }, "testResults": { "type": "array", "items": { "type": "string" } } }
+  },
+  "outputSchema": {
+    "type": "object", "required": ["findings", "verdict"],
+    "properties": {
+      "findings": { "type": "array", "items": { "type": "object", "required": ["severity", "message"], "properties": { "severity": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] }, "message": { "type": "string" }, "file": { "type": "string" }, "line": { "type": "integer" } } } },
+      "verdict": { "type": "string", "enum": ["pass", "needs_fix"] }
+    }
+  },
+  "skills": [{ "id": "review-packet", "version": 1 }],
+  "tools": ["read-context"],
+  "permissions": { "filesystem": "read-only", "network": "deny", "gitWrite": false }
+}

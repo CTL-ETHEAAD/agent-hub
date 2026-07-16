@@ -1,0 +1,16 @@
+{
+  "name": "agent-hub",
+  "version": "0.1.0",
+  "description": "Local-first, governable Agent OS workspace for composing agents, skills, tools, and workflows.",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "hub": "node src/cli.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

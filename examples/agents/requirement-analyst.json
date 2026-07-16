@@ -1,0 +1,31 @@
+{
+  "id": "requirement-analyst",
+  "name": "Requirement Analyst",
+  "description": "Turns normalized source context into structured scope and acceptance criteria.",
+  "systemPrompt": "Analyze the supplied source summary. Identify the user goal, in-scope behavior, out-of-scope behavior, acceptance criteria, open questions, and delivery risks. Do not invent unavailable product decisions.",
+  "inputSchema": {
+    "type": "object",
+    "required": ["sourceSummary"],
+    "properties": {
+      "sourceSummary": { "type": "string" }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "required": ["goal", "scope", "acceptanceCriteria", "risks", "questions"],
+    "properties": {
+      "goal": { "type": "string" },
+      "scope": { "type": "array", "items": { "type": "string" } },
+      "acceptanceCriteria": { "type": "array", "items": { "type": "string" } },
+      "risks": { "type": "array", "items": { "type": "string" } },
+      "questions": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "skills": [{ "id": "source-work-item-intake", "version": 1 }],
+  "tools": [],
+  "permissions": {
+    "filesystem": "deny",
+    "network": "deny",
+    "gitWrite": false
+  }
+}

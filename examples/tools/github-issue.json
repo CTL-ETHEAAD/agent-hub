@@ -1,0 +1,33 @@
+{
+  "id": "github-issue",
+  "name": "GitHub Issue Lookup",
+  "description": "Fetches one GitHub issue through an allowlisted HTTPS endpoint.",
+  "type": "http",
+  "config": {
+    "url": "https://api.github.com/repos/{{owner}}/{{repo}}/issues/{{issueNumber}}",
+    "method": "GET",
+    "allowedHosts": ["api.github.com"],
+    "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "$env.GITHUB_TOKEN"
+    }
+  },
+  "secretEnv": ["GITHUB_TOKEN"],
+  "inputSchema": {
+    "type": "object",
+    "required": ["owner", "repo", "issueNumber"],
+    "properties": {
+      "owner": { "type": "string" },
+      "repo": { "type": "string" },
+      "issueNumber": { "type": "integer" }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "required": ["title", "state"],
+    "properties": {
+      "title": { "type": "string" },
+      "state": { "type": "string" }
+    }
+  }
+}

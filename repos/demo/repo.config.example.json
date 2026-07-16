@@ -1,0 +1,15 @@
+{
+  "repo": "demo",
+  "ticketPrefix": "DEMO-",
+  "projectPath": "/absolute/path/to/your/repository",
+  "baseBranch": "main",
+  "branchPattern": "agent/{workItemId}-{slug}",
+  "featureFilePattern": "work-items/{workItemId}-{slug}.md",
+  "projectGuide": "AGENTS.md",
+  "repoProfile": "repos/demo/repo.profile.example.md",
+  "packageManager": "npm",
+  "testCommand": "npm test",
+  "fullValidation": "npm test",
+  "commitFormat": "{workItemId}: {summary}",
+  "repoSkills": []
+}

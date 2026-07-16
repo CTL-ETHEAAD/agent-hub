@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent Hub</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-chrome">
+        <div class="app-title">
+          <span class="brand-mark" aria-hidden="true">A</span>
+          <strong>Agent Hub</strong>
+          <span class="local-status"><i aria-hidden="true"></i>Local</span>
+        </div>
+        <nav class="workspace-nav" aria-label="Workspace">
+          <button class="active" data-workspace="issues" type="button">Work Items</button>
+          <button data-workspace="agents" type="button">Agents</button>
+          <button data-workspace="workflows" type="button">Workflows</button>
+          <button data-workspace="tools" type="button">Tools</button>
+        </nav>
+        <div class="chrome-actions">
+          <button id="initializeAssetsButton" type="button">Initialize Assets</button>
+          <button id="refreshButton" type="button">Refresh</button>
+        </div>
+      </header>
+
+      <section class="project-bar">
+        <div>
+          <h1>Work Item Agents</h1>
+          <p>Workspace / Work Items</p>
+        </div>
+        <form id="issueForm" class="quick-add">
+          <input name="externalId" placeholder="Manual task or external ID" required />
+          <select name="repo" id="repoSelect" aria-label="Repo"></select>
+          <select name="type" aria-label="Work item type">
+            <option value="task">task</option>
+            <option value="spike">spike</option>
+            <option value="bug">bug</option>
+            <option value="eui">eui</option>
+          </select>
+          <input name="title" placeholder="Optional title" />
+          <button type="submit">New Work Item</button>
+        </form>
+      </section>
+
+      <section id="summaryStrip" class="summary-strip" aria-label="Board summary"></section>
+      <div id="appFeedback" class="app-feedback" role="status" aria-live="polite" hidden></div>
+
+      <section class="board-shell">
+        <section class="board-toolbar">
+          <div class="board-heading">
+            <strong>Board</strong>
+            <span id="boardCount">0 work items</span>
+          </div>
+          <div class="board-tools">
+            <input id="boardSearch" type="search" placeholder="Search work items" aria-label="Search work items" />
+            <button type="button">Display</button>
+          </div>
+        </section>
+
+        <section class="board-layout">
+          <div id="kanbanBoard" class="kanban-board" aria-label="Work item board"></div>
+
+          <aside class="right-rail">
+            <section>
+              <h2>Status overview</h2>
+              <div id="hiddenColumns" class="rail-list"></div>
+            </section>
+            <section>
+              <h2>Repos</h2>
+              <div id="repoGroups" class="rail-list"></div>
+            </section>
+          </aside>
+        </section>
+      </section>
+
+      <section id="agentsWorkspace" class="agents-workspace" hidden>
+        <header class="agents-heading">
+          <div>
+            <h1>Agents</h1>
+            <p>Reusable, versioned capabilities for your delivery workflows.</p>
+          </div>
+          <button id="createAgentButton" class="btn-primary" type="button">New Agent</button>
+        </header>
+        <div id="agentGrid" class="agent-grid"></div>
+      </section>
+
+      <section id="workflowsWorkspace" class="agents-workspace" hidden>
+        <header class="agents-heading">
+          <div><h1>Workflows</h1><p>Connect agents with deterministic routing and observable runs.</p></div>
+          <div class="heading-actions"><button id="createFromTemplateButton" type="button">From Template</button><button id="createWorkflowButton" class="btn-primary" type="button">New Workflow</button></div>
+        </header>
+        <div id="workflowGrid" class="agent-grid"></div>
+      </section>
+
+      <section id="toolsWorkspace" class="agents-workspace" hidden>
+        <header class="agents-heading"><div><h1>Tool Hub</h1><p>Versioned capabilities with explicit contracts, secrets, and network boundaries.</p></div><button id="createToolButton" class="btn-primary" type="button">New Tool</button></header>
+        <div id="toolGrid" class="agent-grid"></div>
+      </section>
+
+      <section id="detailsDrawer" class="details-drawer" aria-label="Work item workspace" aria-hidden="true">
+        <div class="drawer-heading">
+          <div class="drawer-identity">
+            <span id="drawerStatusDot" class="state-dot" aria-hidden="true"></span>
+            <div>
+              <h2 id="outputTitle">Details</h2>
+              <p id="drawerSubtitle">Select a work item</p>
+            </div>
+          </div>
+          <div id="drawerActions" class="drawer-actions"></div>
+          <button id="clearOutputButton" class="icon-button" type="button" aria-label="Close details" title="Close details">&times;</button>
+        </div>
+        <div id="detailTabs" class="detail-tabs" aria-label="Work item details"></div>
+        <div class="drawer-body">
+          <aside id="drawerContext" class="drawer-context"></aside>
+          <div id="output" class="output-view output-plain">Select a work item action to inspect plan, diff, or review output.</div>
+        </div>
+      </section>
+
+      <dialog id="approveDialog" class="approval-dialog">
+        <form id="approveForm" method="dialog">
+          <header>
+            <h2 id="approveTitle">Approve work item</h2>
+            <button id="approveCancelButton" type="button" aria-label="Cancel approval">Cancel</button>
+          </header>
+          <div id="approveChecklist" class="approval-checklist"></div>
+          <label>
+            Approval note
+            <textarea id="approvalNote" rows="4" placeholder="What did you review before approving?"></textarea>
+          </label>
+          <footer>
+            <button id="approveConfirmButton" class="btn-approve" type="submit">Approve</button>
+          </footer>
+        </form>
+      </dialog>
+
+      <dialog id="loopDialog" class="approval-dialog loop-dialog">
+        <form id="loopForm" method="dialog">
+          <header>
+            <h2 id="loopTitle">Start controlled loop</h2>
+            <button id="loopCancelButton" type="button" aria-label="Cancel loop">Cancel</button>
+          </header>
+          <label>
+            Maximum iterations
+            <input id="loopMaxIterations" type="number" min="1" max="10" value="3" required />
+          </label>
+          <label>
+            Acceptance criteria
+            <textarea id="loopAcceptanceCriteria" rows="4"></textarea>
+          </label>
+          <div id="loopValidationCommand" class="dialog-command"></div>
+          <footer>
+            <button class="btn-primary" type="submit">Start Loop</button>
+          </footer>
+        </form>
+      </dialog>
+
+      <dialog id="agentEditorDialog" class="agent-dialog">
+        <form id="agentEditorForm" method="dialog">
+          <header><h2 id="agentEditorTitle">New Agent</h2><button value="cancel" type="button" data-close-agent-dialog>Cancel</button></header>
+          <div class="agent-form-grid">
+            <label>Agent ID<input name="id" placeholder="code-reviewer" required /></label>
+            <label>Name<input name="name" placeholder="Code Reviewer" required /></label>
+            <label class="wide">Description<input name="description" /></label>
+            <label class="wide">System Prompt<textarea name="systemPrompt" rows="7" required></textarea></label>
+            <label>Provider<select name="provider"><option value="claude-code">Claude Code</option><option value="openai-compatible">OpenAI-compatible</option></select></label>
+            <label>Model<input name="model" placeholder="Default model" /></label>
+            <label>Timeout (ms)<input name="timeoutMs" type="number" min="1000" max="3600000" value="600000" /></label>
+            <label>Filesystem<select name="filesystem"><option value="deny">Deny</option><option value="read-only">Read only</option><option value="workspace-write">Workspace write</option></select></label>
+            <label>Tools<input name="tools" placeholder="read-context, shell" /></label>
+            <label class="wide">Input Schema<textarea name="inputSchema" rows="7"></textarea></label>
+            <label class="wide">Output Schema<textarea name="outputSchema" rows="7"></textarea></label>
+          </div>
+          <p id="agentEditorError" class="form-error" role="alert"></p>
+          <footer><button class="btn-primary" type="submit">Save Draft</button></footer>
+        </form>
+      </dialog>
+
+      <dialog id="agentPlaygroundDialog" class="agent-dialog">
+        <form method="dialog">
+          <header><div><h2 id="agentPlaygroundTitle">Agent Playground</h2><p id="agentPlaygroundMeta"></p></div><button value="cancel" type="button" data-close-playground>Close</button></header>
+          <label>JSON Input<textarea id="agentRunInput" rows="10">{}</textarea></label>
+          <div class="playground-actions"><button id="runAgentButton" class="btn-primary" type="button">Run Agent</button><button id="cancelAgentRunButton" type="button" disabled>Cancel</button></div>
+          <pre id="agentRunOutput" class="agent-run-output">Ready.</pre>
+        </form>
+      </dialog>
+
+      <dialog id="workflowEditorDialog" class="agent-dialog workflow-dialog">
+        <form id="workflowEditorForm" method="dialog">
+          <header><h2 id="workflowEditorTitle">New Workflow</h2><button value="cancel" type="button" data-close-workflow-dialog>Cancel</button></header>
+          <div class="agent-form-grid">
+            <label>Workflow ID<input name="id" placeholder="review-pipeline" required /></label>
+            <label>Name<input name="name" required /></label>
+            <label class="wide">Description<input name="description" /></label>
+            <section class="wide visual-builder-section">
+              <header><div><strong>Visual Builder</strong><span>Drag blocks, connect ports, then configure the selected node.</span></div><div class="node-palette"><button type="button" data-add-node="agent">+ Agent</button><button type="button" data-add-node="tool">+ Tool</button><button type="button" data-add-node="condition">+ Condition</button><button type="button" data-add-node="parallel">+ Parallel</button><button type="button" data-add-node="join">+ Join</button><button type="button" data-add-node="subworkflow">+ Subflow</button><button type="button" data-add-node="approval">+ Approval</button><button type="button" data-add-node="feature">+ Feature</button></div></header>
+              <div class="workflow-canvas-shell">
+                <div class="canvas-stage-wrap"><div id="workflowVisualBuilder" class="workflow-visual-builder"></div></div>
+                <aside id="workflowNodeInspector" class="workflow-node-inspector"><div class="inspector-empty">Select a node to configure it.</div></aside>
+              </div>
+            </section>
+            <label class="wide">Workflow Definition<textarea name="definition" rows="24" required></textarea></label>
+          </div>
+          <p class="builder-hint">Supported nodes: start, agent, tool, condition, parallel, join, subworkflow, approval, feature, end. References use <code>$input</code> and <code>$nodes.&lt;id&gt;.output</code>.</p>
+          <p id="workflowEditorError" class="form-error" role="alert"></p>
+          <footer><button class="btn-primary" type="submit">Save Draft</button></footer>
+        </form>
+      </dialog>
+
+      <dialog id="toolEditorDialog" class="agent-dialog">
+        <form id="toolEditorForm" method="dialog">
+          <header><h2 id="toolEditorTitle">New Tool</h2><button type="button" data-close-tool-dialog>Cancel</button></header>
+          <div class="agent-form-grid">
+            <label>Tool ID<input name="id" placeholder="github-issue" required /></label><label>Name<input name="name" required /></label>
+            <label>Type<select name="type"><option value="http">HTTP</option><option value="mcp">MCP</option></select></label><label>Timeout (ms)<input name="timeoutMs" type="number" min="100" max="300000" value="30000" /></label>
+            <label class="wide">Description<input name="description" /></label>
+            <label class="wide">Configuration JSON<textarea name="config" rows="9" required></textarea></label>
+            <label class="wide">Secret environment names<input name="secretEnv" placeholder="GITHUB_TOKEN, JIRA_TOKEN" /></label>
+            <label class="wide">Input Schema<textarea name="inputSchema" rows="6"></textarea></label><label class="wide">Output Schema<textarea name="outputSchema" rows="6"></textarea></label>
+          </div><p id="toolEditorError" class="form-error" role="alert"></p><footer><button class="btn-primary" type="submit">Save Draft</button></footer>
+        </form>
+      </dialog>
+
+      <dialog id="toolTestDialog" class="agent-dialog">
+        <form method="dialog"><header><div><h2 id="toolTestTitle">Test Tool</h2><p id="toolTestMeta"></p></div><button type="button" data-close-tool-test>Close</button></header><label>JSON Input<textarea id="toolTestInput" rows="9">{}</textarea></label><div class="playground-actions"><button id="executeToolButton" class="btn-primary" type="button">Execute Tool</button></div><pre id="toolTestOutput" class="agent-run-output">Ready.</pre></form>
+      </dialog>
+
+      <dialog id="workflowTemplateDialog" class="agent-dialog template-dialog">
+        <form method="dialog"><header><h2>Start from a template</h2><button value="cancel">Cancel</button></header><div id="workflowTemplateList" class="template-list"></div></form>
+      </dialog>
+
+      <dialog id="workflowRunDialog" class="agent-dialog">
+        <form method="dialog">
+          <header><div><h2 id="workflowRunTitle">Run Workflow</h2><p id="workflowRunMeta"></p></div><button value="cancel" type="button" data-close-workflow-run>Close</button></header>
+          <label>JSON Input<textarea id="workflowRunInput" rows="8">{}</textarea></label>
+          <div class="playground-actions"><button id="runWorkflowButton" class="btn-primary" type="button">Run Workflow</button></div>
+          <div id="workflowRunActions" class="playground-actions"></div>
+          <div id="workflowNodeTimeline" class="workflow-node-timeline"></div>
+          <pre id="workflowRunOutput" class="agent-run-output">Ready.</pre>
+        </form>
+      </dialog>
+    </main>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

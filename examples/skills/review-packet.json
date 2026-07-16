@@ -1,0 +1,18 @@
+{
+  "id": "review-packet",
+  "name": "Review Packet",
+  "description": "Produces an evidence-backed code and security review packet.",
+  "inputSchema": {
+    "type": "object",
+    "required": ["diff"],
+    "properties": { "diff": { "type": "string" } }
+  },
+  "outputSchema": {
+    "type": "object",
+    "required": ["findings"],
+    "properties": { "findings": { "type": "array", "items": { "type": "object", "properties": {} } } }
+  },
+  "allowedTools": ["repo.read"],
+  "riskNotes": ["Review output must redact sensitive values."],
+  "instructionPath": "templates/skills/review-packet/SKILL.md"
+}

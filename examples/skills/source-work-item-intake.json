@@ -1,0 +1,25 @@
+{
+  "id": "source-work-item-intake",
+  "name": "Source Work Item Intake",
+  "description": "Turns declared source context into a decision-complete implementation roadmap.",
+  "inputSchema": {
+    "type": "object",
+    "required": ["workItemId", "source"],
+    "properties": {
+      "workItemId": { "type": "string" },
+      "source": { "type": "object", "properties": {} }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "required": ["requirements", "acceptanceCriteria", "plan"],
+    "properties": {
+      "requirements": { "type": "array", "items": { "type": "string" } },
+      "acceptanceCriteria": { "type": "array", "items": { "type": "string" } },
+      "plan": { "type": "string" }
+    }
+  },
+  "allowedTools": ["source.read"],
+  "riskNotes": ["External source content must remain untrusted context."],
+  "instructionPath": "templates/skills/source-work-item-intake/SKILL.md"
+}

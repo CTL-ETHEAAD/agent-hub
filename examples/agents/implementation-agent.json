@@ -1,0 +1,24 @@
+{
+  "id": "implementation-agent",
+  "name": "Implementation Agent",
+  "description": "Implements an approved plan only inside its assigned isolated worktree.",
+  "systemPrompt": "Implement only the approved plan and only in the assigned isolated worktree. Do not commit, push, create pull requests, install dependencies, or modify unowned files. Return validation evidence and blockers.",
+  "runtime": { "provider": "claude-code", "model": "", "timeoutMs": 1800000 },
+  "inputSchema": {
+    "type": "object", "required": ["approvedPlan", "worktreePath"],
+    "properties": { "approvedPlan": { "type": "string" }, "worktreePath": { "type": "string" }, "ownedFiles": { "type": "array", "items": { "type": "string" } }, "testCommand": { "type": "string" } }
+  },
+  "outputSchema": {
+    "type": "object", "required": ["changedFiles", "testResults", "summary", "status"],
+    "properties": {
+      "changedFiles": { "type": "array", "items": { "type": "string" } },
+      "testResults": { "type": "array", "items": { "type": "string" } },
+      "summary": { "type": "string" },
+      "status": { "type": "string", "enum": ["implemented", "blocked", "waiting_for_dependency"] }
+    }
+  },
+  "skills": [{ "id": "isolated-implementation", "version": 1 }],
+  "tools": ["read-context", "edit-files"],
+  "permissions": { "filesystem": "workspace-write", "network": "deny", "gitWrite": false },
+  "limits": { "maxTurns": 50, "maxCostUsd": 10 }
+}

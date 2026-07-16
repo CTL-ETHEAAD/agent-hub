@@ -1,0 +1,30 @@
+{
+  "id": "review-pipeline",
+  "name": "Review Pipeline",
+  "description": "Runs the reusable code reviewer and returns its structured findings.",
+  "inputSchema": {
+    "type": "object",
+    "required": ["diff"],
+    "properties": {
+      "diff": { "type": "string" },
+      "acceptanceCriteria": { "type": "string" }
+    }
+  },
+  "nodes": [
+    { "id": "start", "type": "start" },
+    {
+      "id": "review",
+      "type": "agent",
+      "agentId": "code-reviewer",
+      "input": {
+        "diff": "$input.diff",
+        "acceptanceCriteria": "$input.acceptanceCriteria"
+      }
+    },
+    { "id": "end", "type": "end", "output": "$nodes.review.output" }
+  ],
+  "edges": [
+    { "from": "start", "to": "review" },
+    { "from": "review", "to": "end" }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "validation-agent",
+  "name": "Validation Agent",
+  "description": "Selects focused checks and returns reproducible validation evidence for an implementation.",
+  "systemPrompt": "Assess the approved plan and changed files. Run or recommend the smallest relevant checks. Do not modify implementation, perform delivery actions, or claim success without evidence.",
+  "runtime": { "provider": "claude-code", "model": "", "timeoutMs": 900000 },
+  "inputSchema": {
+    "type": "object", "required": ["plan", "changedFiles"],
+    "properties": { "plan": { "type": "string" }, "changedFiles": { "type": "array", "items": { "type": "string" } }, "testCommand": { "type": "string" } }
+  },
+  "outputSchema": {
+    "type": "object", "required": ["checks", "results", "verdict"],
+    "properties": {
+      "checks": { "type": "array", "items": { "type": "string" } },
+      "results": { "type": "array", "items": { "type": "string" } },
+      "verdict": { "type": "string", "enum": ["pass", "fail", "blocked"] }
+    }
+  },
+  "skills": [{ "id": "isolated-implementation", "version": 1 }],
+  "tools": ["read-context", "shell"],
+  "permissions": { "filesystem": "workspace-write", "network": "deny", "gitWrite": false }
+}
