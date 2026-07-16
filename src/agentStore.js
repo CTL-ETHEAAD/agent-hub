@@ -3,7 +3,7 @@ import path from 'node:path';
 import { STATE_ROOT } from './stateStore.js';
 import { validateAgentDefinition } from './agentSchema.js';
 
-export const AGENTS_ROOT = process.env.AGENT_BOARD_AGENTS_ROOT || path.join(STATE_ROOT, 'agents');
+export const AGENTS_ROOT = process.env.AGENT_HUB_AGENTS_ROOT || path.join(STATE_ROOT, 'agents');
 const writeQueues = new Map();
 
 export class AgentStoreError extends Error {

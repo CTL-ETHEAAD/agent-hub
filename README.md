@@ -62,6 +62,8 @@ npm start
 ```bash
 npm start
 npm test
+npm run typecheck
+npm run check
 npm run hub -- list
 npm run hub -- show demo-task-1
 ```
@@ -74,4 +76,5 @@ npm run hub -- show demo-task-1
 - Workflow 支持 Agent、Tool、Condition、Parallel、Join、Subworkflow、Approval 和 Feature 节点。
 - HTTP Tool、Claude Code Runtime、OpenAI-compatible Runtime 可用。
 - MCP 注册模型已有，完整 MCP Runtime Adapter 尚未完成。
+- 核心领域契约已在 `src/types/` 中提供 TypeScript 类型定义。
 - 项目采用 Apache-2.0 License。

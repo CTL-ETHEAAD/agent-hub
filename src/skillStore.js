@@ -3,7 +3,7 @@ import path from 'node:path';
 import { STATE_ROOT } from './stateStore.js';
 import { validateSkillDefinition } from './skillSchema.js';
 
-export const SKILLS_ROOT = process.env.AGENT_HUB_SKILLS_ROOT || process.env.AGENT_BOARD_SKILLS_ROOT || path.join(STATE_ROOT, 'skills');
+export const SKILLS_ROOT = process.env.AGENT_HUB_SKILLS_ROOT || path.join(STATE_ROOT, 'skills');
 const queues = new Map();
 
 export class SkillStoreError extends Error {

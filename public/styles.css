@@ -1313,7 +1313,7 @@ pre {
   }
 }
 
-/* Codex-simple theme overrides */
+/* Simplified theme overrides */
 :root {
   --bg: #ffffff;
   --chrome: #ffffff;
@@ -1772,7 +1772,7 @@ pre {
   font-size: 12px;
 }
 
-/* Fresh workspace and Codex-style review surface */
+/* Fresh workspace and streamlined review surface */
 :root {
   --bg: #f6f8f7;
   --surface: #ffffff;

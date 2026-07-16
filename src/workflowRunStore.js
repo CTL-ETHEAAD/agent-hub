@@ -3,7 +3,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { STATE_ROOT } from './stateStore.js';
 
-export const WORKFLOW_RUNS_ROOT = process.env.AGENT_BOARD_WORKFLOW_RUNS_ROOT || path.join(STATE_ROOT, 'workflow-runs');
+export const WORKFLOW_RUNS_ROOT = process.env.AGENT_HUB_WORKFLOW_RUNS_ROOT || path.join(STATE_ROOT, 'workflow-runs');
 const queues = new Map();
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled']);
 

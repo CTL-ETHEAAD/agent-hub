@@ -26,6 +26,8 @@ flowchart TD
 
 ## Core Objects
 
+Shared TypeScript contracts live under `src/types/`. Runtime Schemas validate external input, while TypeScript types enforce development-time contracts; both must preserve the same field semantics.
+
 - Work Item: task identity, source, repository, state, worktree, and artifacts.
 - Agent: prompt, schema, provider, skills, tools, permissions, and limits.
 - Skill: reusable instructions and output contract without direct runtime permissions.

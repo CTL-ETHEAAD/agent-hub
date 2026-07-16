@@ -26,6 +26,8 @@ flowchart TD
 
 ## Core objects
 
+公共 TypeScript 契约位于 `src/types/`。运行时 Schema 负责外部输入校验，TypeScript 类型负责开发期约束；两者必须保持相同的字段语义。
+
 - Work Item：任务身份、来源、repo、状态、worktree 和 artifacts。
 - Agent：prompt、schema、provider、skills、tools、permissions 和 limits。
 - Skill：可复用方法与输出契约，不直接获得运行权限。

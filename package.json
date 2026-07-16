@@ -8,7 +8,13 @@
   "scripts": {
     "start": "node src/server.js",
     "hub": "node src/cli.js",
-    "test": "node --test"
+    "test": "node --test",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
   },
   "engines": {
     "node": ">=20"

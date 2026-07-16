@@ -3,7 +3,7 @@ import path from 'node:path';
 import { STATE_ROOT } from './stateStore.js';
 import { validateWorkflow } from './workflowSchema.js';
 
-export const WORKFLOWS_ROOT = process.env.AGENT_BOARD_WORKFLOWS_ROOT || path.join(STATE_ROOT, 'workflows');
+export const WORKFLOWS_ROOT = process.env.AGENT_HUB_WORKFLOWS_ROOT || path.join(STATE_ROOT, 'workflows');
 const queues = new Map();
 
 export class WorkflowStoreError extends Error {
