@@ -3,8 +3,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { STATE_ROOT } from './stateStore.js';
 
-export const AGENT_RUNS_ROOT = process.env.AGENT_BOARD_RUNS_ROOT || path.join(STATE_ROOT, 'agent-runs');
-export const AGENT_RUN_LOGS_ROOT = process.env.AGENT_BOARD_RUN_LOGS_ROOT || path.join(STATE_ROOT, 'logs', 'agent-runs');
+export const AGENT_RUNS_ROOT = process.env.AGENT_HUB_RUNS_ROOT || path.join(STATE_ROOT, 'agent-runs');
+export const AGENT_RUN_LOGS_ROOT = process.env.AGENT_HUB_RUN_LOGS_ROOT || path.join(STATE_ROOT, 'logs', 'agent-runs');
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled']);
 const TRANSITIONS = {
   queued: new Set(['running', 'failed', 'cancelled']),

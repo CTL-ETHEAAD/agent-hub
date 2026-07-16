@@ -3,7 +3,7 @@ import path from 'node:path';
 import { STATE_ROOT } from '../stateStore.js';
 import { validatePolicy } from './policySchema.js';
 
-export const POLICIES_ROOT = process.env.AGENT_BOARD_POLICIES_ROOT || path.join(STATE_ROOT, 'policies');
+export const POLICIES_ROOT = process.env.AGENT_HUB_POLICIES_ROOT || path.join(STATE_ROOT, 'policies');
 const queues = new Map();
 
 export class PolicyStoreError extends Error {

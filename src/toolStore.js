@@ -3,7 +3,7 @@ import path from 'node:path';
 import { STATE_ROOT } from './stateStore.js';
 import { validateTool } from './toolSchema.js';
 
-export const TOOLS_ROOT = process.env.AGENT_BOARD_TOOLS_ROOT || path.join(STATE_ROOT, 'tools');
+export const TOOLS_ROOT = process.env.AGENT_HUB_TOOLS_ROOT || path.join(STATE_ROOT, 'tools');
 const queues = new Map();
 
 export class ToolStoreError extends Error {

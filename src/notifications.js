@@ -50,7 +50,7 @@ const STATUS_MESSAGES = {
 
 export function shouldNotifyStatusChange(previousStatus, nextStatus, options = {}) {
   if (!nextStatus || previousStatus === nextStatus) return false;
-  if (options.enabled === false || process.env.AGENT_BOARD_NOTIFICATIONS === 'false') return false;
+  if (options.enabled === false || process.env.AGENT_HUB_NOTIFICATIONS === 'false') return false;
   return NOTIFIABLE_STATES.has(nextStatus);
 }
 

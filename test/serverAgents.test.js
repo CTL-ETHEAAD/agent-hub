@@ -16,9 +16,9 @@ test('agent HTTP API supports lifecycle and validation errors', {
     env: {
       ...process.env,
       PORT: String(port),
-      AGENT_BOARD_AGENTS_ROOT: path.join(root, 'agents'),
-      AGENT_BOARD_RUNS_ROOT: path.join(root, 'runs'),
-      AGENT_BOARD_RUN_LOGS_ROOT: path.join(root, 'logs')
+      AGENT_HUB_AGENTS_ROOT: path.join(root, 'agents'),
+      AGENT_HUB_RUNS_ROOT: path.join(root, 'runs'),
+      AGENT_HUB_RUN_LOGS_ROOT: path.join(root, 'logs')
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });

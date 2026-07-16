@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { STATE_ROOT } from '../stateStore.js';
 import { redact } from '../audit/auditEvent.js';
 
-export const TRACES_ROOT = process.env.AGENT_BOARD_TRACES_ROOT || path.join(STATE_ROOT, 'traces');
+export const TRACES_ROOT = process.env.AGENT_HUB_TRACES_ROOT || path.join(STATE_ROOT, 'traces');
 const queues = new Map();
 
 export class TraceStoreError extends Error {
