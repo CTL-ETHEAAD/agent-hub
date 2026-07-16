@@ -26,6 +26,7 @@ export interface WorkflowEdge {
 
 export interface WorkflowDefinition extends VersionedAsset {
   description?: string;
+  contractVersion: 1;
   inputSchema: JsonSchema;
   outputSchema?: JsonSchema;
   nodes: WorkflowNode[];

@@ -6,15 +6,18 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prestart": "npm run build",
     "start": "node src/server.js",
     "hub": "node src/cli.js",
+    "pretest": "npm run build",
     "test": "node --test",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
-    "typescript": "^5.9.0"
+    "@types/node": "^25.6.0",
+    "typescript": "^5.9.2"
   },
   "engines": {
     "node": ">=20"

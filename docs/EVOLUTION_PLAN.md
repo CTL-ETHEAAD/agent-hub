@@ -59,6 +59,8 @@ flowchart TD
 
 ### Phase 1：积木契约标准化（P0）
 
+实施状态：**进行中**（`feature/node-contract-v1`）。Node Contract v1、静态引用校验、Contract Catalog API、画布风险摘要和发布时资产兼容性检查已经实现。新增领域模块采用严格 TypeScript，并通过 `tsc` 生成 Node 运行产物。
+
 目标：确保所有积木能够安全、可验证地连接。
 
 主要工作：

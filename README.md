@@ -62,6 +62,7 @@ npm start
 ```bash
 npm start
 npm test
+npm run build
 npm run typecheck
 npm run check
 npm run hub -- list

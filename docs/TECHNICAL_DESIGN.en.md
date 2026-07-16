@@ -28,6 +28,10 @@ flowchart TD
 
 Shared TypeScript contracts live under `src/types/`. Runtime Schemas validate external input, while TypeScript types enforce development-time contracts; both must preserve the same field semantics.
 
+Workflows use `contractVersion: 1`. `workflowNodeContract` defines node ports, edge cardinality, risk categories, and cross-node reference checks. `GET /api/workflow-node-contracts` exposes the same runtime contract to the canvas.
+
+`workflowAssetContract` resolves pinned Agent, Tool, and Subworkflow versions at publish time and checks required mappings against their actual input Schemas. New Contract implementations use TypeScript; `prestart` and `pretest` build them before Node loads the generated files from `dist/`.
+
 - Work Item: task identity, source, repository, state, worktree, and artifacts.
 - Agent: prompt, schema, provider, skills, tools, permissions, and limits.
 - Skill: reusable instructions and output contract without direct runtime permissions.

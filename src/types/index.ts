@@ -5,3 +5,4 @@ export * from './tool.js';
 export * from './policy.js';
 export * from './workflow.js';
 export * from './trace.js';
+export * from './nodeContract.js';

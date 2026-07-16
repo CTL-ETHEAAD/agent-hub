@@ -62,6 +62,7 @@ import {
   readWorkflow,
   updateWorkflowDraft
 } from './workflowStore.js';
+import { listNodeContracts } from './workflowNodeContract.js';
 import {
   cancelWorkflowRun,
   decideWorkflowApproval,
@@ -190,6 +191,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/workflows' && req.method === 'GET') {
       return json(res, await listWorkflows({ includeArchived: url.searchParams.get('includeArchived') === 'true' }));
     }
+    if (url.pathname === '/api/workflow-node-contracts' && req.method === 'GET') return json(res, listNodeContracts());
     if (url.pathname === '/api/workflow-templates' && req.method === 'GET') {
       const files = ['review-pipeline.json', 'work-item-planning.json'];
       const templates = await Promise.all(files.map(async (file) => JSON.parse(await readFile(path.join(WORKFLOW_EXAMPLES_ROOT, file), 'utf8'))));

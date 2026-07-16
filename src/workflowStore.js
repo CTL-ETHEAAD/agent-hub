@@ -1,7 +1,10 @@
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { STATE_ROOT } from './stateStore.js';
-import { validateWorkflow } from './workflowSchema.js';
+import { readAgent } from './agentStore.js';
+import { readTool } from './toolStore.js';
+import { WorkflowValidationError, validateWorkflow } from './workflowSchema.js';
+import { analyzeWorkflowAssets } from './workflowAssetContract.js';
 
 export const WORKFLOWS_ROOT = process.env.AGENT_HUB_WORKFLOWS_ROOT || path.join(STATE_ROOT, 'workflows');
 const queues = new Map();
@@ -50,6 +53,12 @@ export async function updateWorkflowDraft(id, updates, root = WORKFLOWS_ROOT) {
 export async function publishWorkflow(id, root = WORKFLOWS_ROOT) {
   return queue(id, async () => {
     const current = validateWorkflow(await read(draftPath(id, root), id));
+    const assetAnalysis = await analyzeWorkflowAssets(current, {
+      resolveAgent: (assetId, version) => readAgent(assetId, version),
+      resolveTool: (assetId, version) => readTool(assetId, version),
+      resolveWorkflow: (assetId, version) => readWorkflow(assetId, version, root)
+    });
+    if (assetAnalysis.errors.length) throw new WorkflowValidationError('Workflow assets are incompatible.', assetAnalysis.errors, 'WORKFLOW_ASSET_INVALID');
     if (await exists(versionPath(id, current.version, root))) throw new WorkflowStoreError('Workflow version already exists.', 'WORKFLOW_VERSION_EXISTS', 409);
     const published = { ...current, status: 'published', publishedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     await atomicWrite(versionPath(id, current.version, root), published);

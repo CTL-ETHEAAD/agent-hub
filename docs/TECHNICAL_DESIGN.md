@@ -28,6 +28,10 @@ flowchart TD
 
 公共 TypeScript 契约位于 `src/types/`。运行时 Schema 负责外部输入校验，TypeScript 类型负责开发期约束；两者必须保持相同的字段语义。
 
+Workflow 使用 `contractVersion: 1`。`workflowNodeContract` 提供节点端口、边基数、风险类别和跨节点引用检查，`GET /api/workflow-node-contracts` 向画布暴露同一份运行时契约。
+
+`workflowAssetContract` 在发布时解析固定版本的 Agent、Tool 和 Subworkflow，并根据真实 input Schema 检查必填映射。新增 Contract 实现使用 TypeScript；`prestart` 和 `pretest` 会先执行构建，Node 加载 `dist/` 中的生成文件。
+
 - Work Item：任务身份、来源、repo、状态、worktree 和 artifacts。
 - Agent：prompt、schema、provider、skills、tools、permissions 和 limits。
 - Skill：可复用方法与输出契约，不直接获得运行权限。

@@ -44,6 +44,7 @@ const toolEditorForm = document.querySelector('#toolEditorForm');
 const toolTestDialog = document.querySelector('#toolTestDialog');
 let agents = [];
 let workflows = [];
+let workflowNodeContracts = {};
 let tools = [];
 let activeWorkspace = 'issues';
 let editingAgentId = '';
@@ -408,7 +409,12 @@ function exampleFromSchema(schema) {
 }
 
 async function refreshWorkflows() {
-  workflows = await request('/api/workflows');
+  const [workflowValues, contractValues] = await Promise.all([
+    request('/api/workflows'),
+    request('/api/workflow-node-contracts')
+  ]);
+  workflows = workflowValues;
+  workflowNodeContracts = Object.fromEntries(contractValues.map((contract) => [contract.type, contract]));
   renderWorkflows();
 }
 
@@ -474,10 +480,11 @@ function renderVisualBuilder(definition) {
   const paths = definition.edges.map((edge) => renderCanvasEdge(edge, definition.ui.positions)).join('');
   workflowVisualBuilder.innerHTML = `<svg class="workflow-canvas-svg" viewBox="0 0 1200 700" aria-hidden="true"><defs><marker id="canvasArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="arrow-head"/></marker></defs>${paths}</svg>${definition.nodes.map((node) => {
     const position = definition.ui.positions[node.id];
+    const contract = workflowNodeContracts[node.type] || {};
     return `<div class="visual-node-wrap" data-canvas-node="${escapeHtml(node.id)}" style="left:${position.x}px;top:${position.y}px">
-      ${node.type !== 'start' ? `<button type="button" class="node-port input" title="Connect here" data-input-port="${escapeHtml(node.id)}"></button>` : ''}
-      <button type="button" class="visual-node node-${node.type} ${selectedCanvasNodeId === node.id ? 'selected' : ''}" data-edit-visual-node="${escapeHtml(node.id)}"><span>${escapeHtml(node.type)}</span><strong>${escapeHtml(node.id)}</strong>${node.agentId ? `<small>${escapeHtml(node.agentId)}</small>` : node.toolId ? `<small>${escapeHtml(node.toolId)}</small>` : node.workflowId ? `<small>${escapeHtml(node.workflowId)}</small>` : node.joinId ? `<small>join: ${escapeHtml(node.joinId)}</small>` : node.action ? `<small>${escapeHtml(node.action)}</small>` : ''}</button>
-      ${node.type !== 'end' ? `<button type="button" class="node-port output ${connectionSourceNodeId === node.id ? 'connecting' : ''}" title="Start connection" data-output-port="${escapeHtml(node.id)}"></button>` : ''}
+      ${contract.inputPort !== 'none' ? `<button type="button" class="node-port input" title="${escapeHtml(contract.inputPort || 'control')} input" data-input-port="${escapeHtml(node.id)}"></button>` : ''}
+      <button type="button" class="visual-node node-${node.type} ${selectedCanvasNodeId === node.id ? 'selected' : ''}" data-edit-visual-node="${escapeHtml(node.id)}"><span>${escapeHtml(node.type)}</span><strong>${escapeHtml(node.id)}</strong>${node.agentId ? `<small>${escapeHtml(node.agentId)}</small>` : node.toolId ? `<small>${escapeHtml(node.toolId)}</small>` : node.workflowId ? `<small>${escapeHtml(node.workflowId)}</small>` : node.joinId ? `<small>join: ${escapeHtml(node.joinId)}</small>` : node.action ? `<small>${escapeHtml(node.action)}</small>` : ''}${contract.risk ? `<em class="node-risk">${escapeHtml(contract.risk)}</em>` : ''}</button>
+      ${contract.outputPort !== 'none' ? `<button type="button" class="node-port output ${connectionSourceNodeId === node.id ? 'connecting' : ''}" title="${escapeHtml(contract.outputPort || 'control')} output" data-output-port="${escapeHtml(node.id)}"></button>` : ''}
     </div>`;
   }).join('')}`;
   workflowVisualBuilder.querySelectorAll('[data-edit-visual-node]').forEach((button) => button.addEventListener('click', () => editVisualNode(button.dataset.editVisualNode)));
@@ -490,9 +497,10 @@ function editVisualNode(nodeId) {
   try {
     const definition = JSON.parse(workflowEditorForm.elements.definition.value);
     const node = definition.nodes.find((item) => item.id === nodeId);
+    const contract = workflowNodeContracts[node.type];
     selectedCanvasNodeId = nodeId;
     const references = ['$input', ...definition.nodes.filter((item) => item.id !== nodeId).map((item) => `$nodes.${item.id}.output`)];
-    document.querySelector('#workflowNodeInspector').innerHTML = `<h3>${escapeHtml(node.id)}</h3><p>${escapeHtml(node.type)} node</p><div class="reference-helper"><span>Insert reference</span>${references.map((reference) => `<button type="button" data-insert-reference="${escapeHtml(reference)}">${escapeHtml(reference)}</button>`).join('')}</div><textarea id="canvasNodeJson">${escapeHtml(JSON.stringify(node, null, 2))}</textarea><footer><button type="button" data-delete-inspected ${['start', 'end'].includes(node.type) ? 'disabled' : ''}>Delete</button><button type="button" class="btn-primary" data-save-inspected>Apply</button></footer>`;
+    document.querySelector('#workflowNodeInspector').innerHTML = `<h3>${escapeHtml(node.id)}</h3><p>${escapeHtml(node.type)} node · Contract v1</p>${contract ? `<div class="node-contract-summary"><span>${escapeHtml(contract.inputPort)} input</span><span>${escapeHtml(contract.outputPort)} output</span>${contract.risk ? `<span>${escapeHtml(contract.risk)}</span>` : ''}</div>` : ''}<div class="reference-helper"><span>Insert reference</span>${references.map((reference) => `<button type="button" data-insert-reference="${escapeHtml(reference)}">${escapeHtml(reference)}</button>`).join('')}</div><textarea id="canvasNodeJson">${escapeHtml(JSON.stringify(node, null, 2))}</textarea><footer><button type="button" data-delete-inspected ${['start', 'end'].includes(node.type) ? 'disabled' : ''}>Delete</button><button type="button" class="btn-primary" data-save-inspected>Apply</button></footer>`;
     document.querySelector('[data-save-inspected]').addEventListener('click', () => saveInspectedNode(nodeId));
     document.querySelector('[data-delete-inspected]').addEventListener('click', () => removeCanvasNode(nodeId));
     document.querySelectorAll('[data-insert-reference]').forEach((button) => button.addEventListener('click', () => insertNodeReference(button.dataset.insertReference)));
@@ -2085,7 +2093,9 @@ async function request(url, options = {}) {
   });
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.error?.message || data.error || response.statusText);
+    const details = data.error?.details || [];
+    const detailText = details.length ? `\n${details.map((item) => `${item.path}: ${item.message}`).join('\n')}` : '';
+    throw new Error(`${data.error?.message || data.error || response.statusText}${detailText}`);
   }
   return data;
 }

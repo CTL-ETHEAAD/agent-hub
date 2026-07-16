@@ -62,6 +62,7 @@ Copy the examples under `repos/demo` and create `repos/<repo>/repo.config.json` 
 ```bash
 npm start
 npm test
+npm run build
 npm run typecheck
 npm run check
 npm run hub -- list
