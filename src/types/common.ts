@@ -23,6 +23,22 @@ export interface VersionedAsset {
   updatedAt: string;
   publishedAt?: string;
   archivedAt?: string;
+  compatibility?: SchemaCompatibilityReport;
+}
+
+export interface SchemaCompatibilityChange {
+  direction: 'input' | 'output';
+  path: string;
+  kind: 'required-added' | 'required-removed' | 'property-removed' | 'type-changed' | 'enum-narrowed' | 'additional-properties-restricted';
+  breaking: boolean;
+  message: string;
+}
+
+export interface SchemaCompatibilityReport {
+  previousVersion: number | null;
+  breaking: boolean;
+  changes: SchemaCompatibilityChange[];
+  checkedAt: string;
 }
 
 export interface JsonSchema {

@@ -42,6 +42,8 @@ flowchart TD
 
 Status: **In progress** (`feature/node-contract-v1`). Implemented capabilities include Node Contract v1, static reference validation, the Contract Catalog API, canvas risk summaries, and publish-time asset compatibility checks. New domain modules use strict TypeScript and compile to Node runtime artifacts with `tsc`.
 
+Schema compatibility continues on `feature/schema-compatibility-v1`: publishing a new Agent or Tool version produces a compatibility report that recursively detects breaking changes to required fields, properties, types, enums, and additional properties. Workflow publication resolves unversioned Agent, Tool, and subworkflow references and pins them to concrete versions, preventing runtime drift when a newer asset is published.
+
 Goal: make every building block safely and verifiably composable.
 
 Scope:

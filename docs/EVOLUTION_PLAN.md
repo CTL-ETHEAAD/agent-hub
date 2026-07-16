@@ -61,6 +61,8 @@ flowchart TD
 
 实施状态：**进行中**（`feature/node-contract-v1`）。Node Contract v1、静态引用校验、Contract Catalog API、画布风险摘要和发布时资产兼容性检查已经实现。新增领域模块采用严格 TypeScript，并通过 `tsc` 生成 Node 运行产物。
 
+Schema 兼容性检查在后续分支 `feature/schema-compatibility-v1` 继续实现：Agent 和 Tool 发布新版本时会生成 compatibility report，递归识别必填字段、属性、类型、枚举和 additional properties 的破坏性变化。Workflow 发布时会将未指定版本的 Agent、Tool 和子 Workflow 解析并锁定到具体版本，避免运行时因“最新版本”变化而漂移。
+
 目标：确保所有积木能够安全、可验证地连接。
 
 主要工作：

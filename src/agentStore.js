@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/pro
 import path from 'node:path';
 import { STATE_ROOT } from './stateStore.js';
 import { validateAgentDefinition } from './agentSchema.js';
+import { analyzeSchemaCompatibility } from './schemaCompatibility.js';
 
 export const AGENTS_ROOT = process.env.AGENT_HUB_AGENTS_ROOT || path.join(STATE_ROOT, 'agents');
 const writeQueues = new Map();
@@ -79,7 +80,11 @@ export async function publishAgent(id, root = AGENTS_ROOT) {
     const draft = validateAgentDefinition(await readJson(draftPath(id, root), id));
     const target = versionPath(id, draft.version, root);
     if (await fileExists(target)) throw new AgentStoreError(`Version ${draft.version} already exists.`, 'AGENT_VERSION_EXISTS', 409);
-    const published = { ...draft, status: 'published', publishedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const versions = await listVersions(id, root);
+    const previous = versions.length ? await readJson(versionPath(id, versions.at(-1), root), id) : null;
+    const now = new Date().toISOString();
+    const compatibility = analyzeSchemaCompatibility(previous, draft, now);
+    const published = { ...draft, compatibility, status: 'published', publishedAt: now, updatedAt: now };
     await atomicWrite(target, published);
     await unlink(draftPath(id, root));
     await unlink(archivePath(id, root)).catch(() => {});
@@ -93,7 +98,8 @@ export async function createDraftVersion(id, root = AGENTS_ROOT) {
     const versions = await listVersions(id, root);
     if (!versions.length) throw new AgentStoreError(`Agent ${id} was not found.`, 'AGENT_NOT_FOUND', 404);
     const latest = await readJson(versionPath(id, versions.at(-1), root), id);
-    const draft = { ...latest, version: latest.version + 1, status: 'draft', publishedAt: null, updatedAt: new Date().toISOString() };
+    const { compatibility: _compatibility, ...definition } = latest;
+    const draft = { ...definition, version: latest.version + 1, status: 'draft', publishedAt: null, updatedAt: new Date().toISOString() };
     await atomicWrite(draftPath(id, root), draft);
     await unlink(archivePath(id, root)).catch(() => {});
     return structuredClone(draft);
@@ -102,7 +108,8 @@ export async function createDraftVersion(id, root = AGENTS_ROOT) {
 
 export async function cloneAgent(id, { id: newId, name } = {}, root = AGENTS_ROOT) {
   const source = await readAgent(id, undefined, root);
-  return createAgent({ ...source, id: newId, name: name || `${source.name} Copy`, createdAt: undefined, updatedAt: undefined }, root);
+  const { compatibility: _compatibility, ...definition } = source;
+  return createAgent({ ...definition, id: newId, name: name || `${source.name} Copy`, createdAt: undefined, updatedAt: undefined }, root);
 }
 
 export async function archiveAgent(id, root = AGENTS_ROOT) {

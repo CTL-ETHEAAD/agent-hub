@@ -50,17 +50,26 @@ export async function updateWorkflowDraft(id, updates, root = WORKFLOWS_ROOT) {
   });
 }
 
-export async function publishWorkflow(id, root = WORKFLOWS_ROOT) {
+export async function publishWorkflow(id, root = WORKFLOWS_ROOT, assetResolver) {
   return queue(id, async () => {
     const current = validateWorkflow(await read(draftPath(id, root), id));
-    const assetAnalysis = await analyzeWorkflowAssets(current, {
+    const resolver = assetResolver || {
       resolveAgent: (assetId, version) => readAgent(assetId, version),
       resolveTool: (assetId, version) => readTool(assetId, version),
       resolveWorkflow: (assetId, version) => readWorkflow(assetId, version, root)
-    });
+    };
+    const assetAnalysis = await analyzeWorkflowAssets(current, resolver);
     if (assetAnalysis.errors.length) throw new WorkflowValidationError('Workflow assets are incompatible.', assetAnalysis.errors, 'WORKFLOW_ASSET_INVALID');
+    const resolvedNodes = current.nodes.map((node) => {
+      const resolved = assetAnalysis.resolvedSchemas[node.id];
+      if (!resolved) return node;
+      if (node.type === 'agent') return { ...node, agentVersion: node.agentVersion || resolved.version };
+      if (node.type === 'tool') return { ...node, toolVersion: node.toolVersion || resolved.version };
+      if (node.type === 'subworkflow') return { ...node, workflowVersion: node.workflowVersion || resolved.version };
+      return node;
+    });
     if (await exists(versionPath(id, current.version, root))) throw new WorkflowStoreError('Workflow version already exists.', 'WORKFLOW_VERSION_EXISTS', 409);
-    const published = { ...current, status: 'published', publishedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const published = { ...current, nodes: resolvedNodes, status: 'published', publishedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     await atomicWrite(versionPath(id, current.version, root), published);
     await unlink(draftPath(id, root));
     await unlink(archivePath(id, root)).catch(() => {});

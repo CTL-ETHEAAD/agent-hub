@@ -7,5 +7,5 @@
     "declaration": true,
     "sourceMap": true
   },
-  "include": ["src/types/**/*.ts", "src/workflow*Contract.ts"]
+  "include": ["src/types/**/*.ts", "src/workflow*Contract.ts", "src/schemaCompatibility.ts"]
 }

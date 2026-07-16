@@ -24,7 +24,7 @@ export interface WorkflowAssetResolver {
 export interface WorkflowAssetAnalysis {
   errors: ContractDiagnostic[];
   warnings: ContractDiagnostic[];
-  resolvedSchemas: Record<string, { inputSchema?: JsonSchema; outputSchema?: JsonSchema }>;
+  resolvedSchemas: Record<string, { version: number; inputSchema?: JsonSchema; outputSchema?: JsonSchema }>;
 }
 
 export async function analyzeWorkflowAssets(workflow: AssetWorkflow, resolver: WorkflowAssetResolver): Promise<WorkflowAssetAnalysis> {
@@ -38,6 +38,7 @@ export async function analyzeWorkflowAssets(workflow: AssetWorkflow, resolver: W
     try {
       const asset = await reference.resolve(resolver);
       resolvedSchemas[node.id] = {
+        version: asset.version,
         ...(asset.inputSchema ? { inputSchema: asset.inputSchema } : {}),
         ...(asset.outputSchema ? { outputSchema: asset.outputSchema } : {})
       };
