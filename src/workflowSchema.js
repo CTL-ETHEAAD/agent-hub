@@ -1,4 +1,5 @@
 import { validateJsonSchema } from './agentSchema.js';
+import { analyzeWorkflowContracts, NODE_CONTRACT_VERSION } from './workflowNodeContract.js';
 
 const ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const NODE_ID = /^[a-zA-Z0-9_-]+$/;
@@ -24,6 +25,7 @@ export function normalizeWorkflow(input, { now = new Date().toISOString() } = {}
     description: typeof value.description === 'string' ? value.description.trim() : '',
     version: Number.isInteger(value.version) ? value.version : 1,
     status: value.status || 'draft',
+    contractVersion: Number.isInteger(value.contractVersion) ? value.contractVersion : NODE_CONTRACT_VERSION,
     inputSchema: value.inputSchema || { type: 'object', properties: {} },
     nodes: Array.isArray(value.nodes) ? value.nodes : [],
     edges: Array.isArray(value.edges) ? value.edges : [],
@@ -46,6 +48,7 @@ export function validateWorkflow(input) {
   if (!workflow.name) details.push(issue('name', 'Name is required.'));
   if (!Number.isInteger(workflow.version) || workflow.version < 1) details.push(issue('version', 'Version must be a positive integer.'));
   if (!STATUSES.has(workflow.status)) details.push(issue('status', 'Unsupported status.'));
+  if (workflow.contractVersion !== NODE_CONTRACT_VERSION) details.push(issue('contractVersion', `Only Node Contract v${NODE_CONTRACT_VERSION} is supported.`));
   if (!Number.isInteger(workflow.limits.maxDurationMs) || workflow.limits.maxDurationMs < 1_000 || workflow.limits.maxDurationMs > 86_400_000) details.push(issue('limits.maxDurationMs', 'maxDurationMs must be between 1000 and 86400000.'));
   if (!Number.isInteger(workflow.limits.maxAgentRuns) || workflow.limits.maxAgentRuns < 0 || workflow.limits.maxAgentRuns > 100) details.push(issue('limits.maxAgentRuns', 'maxAgentRuns must be between 0 and 100.'));
   if (!Number.isInteger(workflow.limits.maxToolRuns) || workflow.limits.maxToolRuns < 0 || workflow.limits.maxToolRuns > 500) details.push(issue('limits.maxToolRuns', 'maxToolRuns must be between 0 and 500.'));
@@ -114,6 +117,7 @@ export function validateWorkflow(input) {
     if (node.type === 'join' && (incoming.get(node.id) || []).length < 2) details.push(issue(`nodes.${node.id}`, 'Join node requires at least two incoming branches.'));
   }
   if (!details.length && starts[0]) detectCycleAndReachability(starts[0].id, workflow.nodes, outgoing, details);
+  if (!details.length) details.push(...analyzeWorkflowContracts(workflow).errors);
   if (details.length) throw new WorkflowValidationError('Workflow definition is invalid.', details);
   return workflow;
 }

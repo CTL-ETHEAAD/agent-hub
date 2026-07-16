@@ -40,6 +40,8 @@ flowchart TD
 
 ### Phase 1: Standardize Building-block Contracts (P0)
 
+Status: **In progress** (`feature/node-contract-v1`). Implemented capabilities include Node Contract v1, static reference validation, the Contract Catalog API, canvas risk summaries, and publish-time asset compatibility checks. New domain modules use strict TypeScript and compile to Node runtime artifacts with `tsc`.
+
 Goal: make every building block safely and verifiably composable.
 
 Scope:
