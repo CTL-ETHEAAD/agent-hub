@@ -25,7 +25,8 @@ async function setup(t) {
     agentRunsRoot: path.join(base, 'agent-runs'),
     agentLogsRoot: path.join(base, 'agent-logs'),
     toolsRoot: path.join(base, 'tools'),
-    tracesRoot: path.join(base, 'traces')
+    tracesRoot: path.join(base, 'traces'),
+    worktreeLeasesRoot: path.join(base, 'worktree-leases')
   };
 }
 
@@ -154,6 +155,37 @@ test('worker executes an agent node through the agent service', async (t) => {
   const completed = await readNodeRun(run.id, options.nodeRunsRoot);
   assert.equal(completed.status, 'succeeded');
   assert.deepEqual(completed.output, { text: 'from worker' });
+});
+
+test('worker resolves sandbox and leases worktree for isolated agent nodes', async (t) => {
+  const options = await setup(t);
+  let observedSandbox;
+  const run = await createNodeRun({
+    workflowRun,
+    node: {
+      id: 'agent-isolated',
+      type: 'agent',
+      agentId: 'echo-agent',
+      sandbox: { mode: 'isolated-worktree', filesystem: 'workspace-write', worktreeStrategy: 'fresh-per-node' }
+    },
+    input: { text: 'isolated', repo: 'repo-a' }
+  }, options.nodeRunsRoot);
+  const result = await runWorkerOnce({
+    ...options,
+    workerId: 'worker-sandbox',
+    policy: { sandbox: { mode: 'isolated-worktree', filesystem: 'workspace-write', network: 'deny', gitWrite: false, worktreeStrategy: 'fresh-per-node' } },
+    capabilityTags: ['node:agent'],
+    handlers: {
+      agent: async (_nodeRun, handlerOptions) => {
+        observedSandbox = handlerOptions.sandboxSnapshot;
+        return { text: 'isolated' };
+      }
+    }
+  });
+  assert.equal(result.results.length, 1);
+  assert.equal((await readNodeRun(run.id, options.nodeRunsRoot)).status, 'succeeded');
+  assert.equal(observedSandbox.sandbox.mode, 'isolated-worktree');
+  assert.equal(observedSandbox.worktreeLease.nodeRunId, run.id);
 });
 
 test('worker executes a tool node through the tool service', async (t) => {
