@@ -46,9 +46,16 @@ See the [Model Provider Guide](docs/MODEL_PROVIDERS.en.md) for configuration, en
 
 Copy the examples under `repos/demo` and create `repos/<repo>/repo.config.json` plus a repo profile. Do not commit local absolute paths, private source code, or internal organization documentation.
 
+## Update Notes Summary
+
+See [Update Notes](docs/UPDATE_NOTES.en.md) for the latest evolution summary. The mainline has moved from a local Agent workspace to an Agent OS skeleton: versioned building-block contracts, Node Run persistence, local Worker Runtime, Agent/Tool Worker Handlers, resource scheduling, Worktree/Sandbox boundaries, governed delegation, and governance snapshot are now in place.
+
+Next productization priorities are queue-driven Workflow Runtime, Run/Worker/Governance UI, strong Sandbox/Network/Secret enforcement, Store Adapter, RBAC, Approval Center, and Trace-based Regression Gate.
+
 ## Documentation
 
 - [Documentation index](docs/README.en.md)
+- [Update Notes](docs/UPDATE_NOTES.en.md)
 - [Model Provider Guide](docs/MODEL_PROVIDERS.en.md)
 - [Technical Design](docs/TECHNICAL_DESIGN.en.md)
 - [Independent Modules](docs/MODULES.en.md)

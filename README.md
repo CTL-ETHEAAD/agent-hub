@@ -46,9 +46,16 @@ npm start
 
 复制 `repos/demo` 中的示例文件，创建自己的 `repos/<repo>/repo.config.json` 和 repo profile。不要提交本机绝对路径、私有源码或组织内部说明。
 
+## Update Notes 概要
+
+最新演进说明见 [Update Notes](docs/UPDATE_NOTES.md)。当前主线已经从本地 Agent 工作台推进到 Agent OS skeleton：完成了版本化积木契约、Node Run 持久化、本地 Worker Runtime、Agent/Tool Worker Handler、资源调度、Worktree/Sandbox 边界、受治理 delegation，以及 governance snapshot。
+
+后续产品化重点是 queue-driven Workflow Runtime、Run/Worker/Governance UI、强制 Sandbox/Network/Secret 执行、Store Adapter、RBAC、Approval Center 和 Trace-based Regression Gate。
+
 ## 文档
 
 - [文档索引](docs/README.md)
+- [演进更新说明](docs/UPDATE_NOTES.md)
 - [模型接入指南](docs/MODEL_PROVIDERS.md)
 - [技术设计](docs/TECHNICAL_DESIGN.md)
 - [独立模块说明](docs/MODULES.md)
