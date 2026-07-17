@@ -9,8 +9,10 @@ The diagram describes the target mainline architecture. HTTP Tools already enfor
 ```mermaid
 flowchart TD
   UI["Web UI / CLI"] --> API["HTTP API"]
+  API --> SP["Spec Hub"]
   API --> WI["Work Item Orchestrator"]
   API --> WF["Workflow Runtime"]
+  SP --> WF
   WF -. governance target .-> K["Execution Kernel"]
   K --> P["Policy Engine"]
   K --> S["Sandbox Resolver"]
@@ -35,6 +37,7 @@ Workflows use `contractVersion: 1`. `workflowNodeContract` defines node ports, e
 `workflowAssetContract` resolves pinned Agent, Tool, and Subworkflow versions at publish time and checks required mappings against their actual input Schemas. New Contract implementations use TypeScript; `prestart` and `pretest` build them before Node loads the generated files from `dist/`.
 
 - Work Item: task identity, source, repository, state, worktree, and artifacts.
+- Spec: versioned goals, requirements, acceptance criteria, constraints, and workflow hints; Published Specs can be bound to Workflow Runs.
 - Agent: prompt, schema, provider, skills, tools, permissions, and limits.
 - Node Run: one recoverable execution of a Workflow node, including status, attempt, idempotency key, input snapshot, output reference, error, worker lease, and event timeline.
 - Worker: local execution process identity, capability tags, concurrency slots, heartbeat, lease, and active Node Runs.
@@ -48,13 +51,13 @@ Workflows use `contractVersion: 1`. `workflowNodeContract` defines node ports, e
 
 Agent Run: `validate input → resolve adapter → execute → validate output → persist run → append trace`.
 
-Current Workflow Run: `resolve node → create Node Run → map input → execute node → persist output → choose edge → finish/pause`. The single-process Runtime still executes full Workflows, but Node Runs can now be claimed, leased, renewed, and completed by local Workers. `agent-hub worker` consumes queued Node Runs, while `agent-hub scheduler` recovers expired leases and stale workers. Tool Nodes perform Policy checks. Uniform Policy and Sandbox enforcement across all nodes is the target mainline.
+Current Workflow Run: `resolve optional Spec → snapshot Spec → resolve node → create Node Run → map input → execute node → persist output → choose edge → finish/pause`. The single-process Runtime still executes full Workflows, but Node Runs can now be claimed, leased, renewed, and completed by local Workers. `agent-hub worker` consumes queued Node Runs, while `agent-hub scheduler` recovers expired leases and stale workers. Tool Nodes perform Policy checks. Uniform Policy and Sandbox enforcement across all nodes is the target mainline.
 
 Work Item: `intake → plan gate → isolated implementation → validation/review → approval → delivery`. This is the current execution path; new capabilities should preferably be composed through Workflow Agent Nodes.
 
 ## Persistence
 
-The current implementation uses JSON files under `state/*`, atomic renames, and per-ID serialized writes. Agent Runs, Workflow Runs, Node Runs, and Workers are persisted separately. Node Runs are queryable through `GET /api/workflow-runs/:id/node-runs` and `GET /api/node-runs/:id`; Workers are queryable through `GET /api/workers` and `GET /api/workers/:id`. This suits local and prototype deployment, but not multi-instance concurrency. Service extraction should replace Store implementations without changing domain Services.
+The current implementation uses JSON files under `state/*`, atomic renames, and per-ID serialized writes. Specs, Agent Runs, Workflow Runs, Node Runs, and Workers are persisted separately. Workflow Runs can store `specId`, `specVersion`, and `specSnapshot` for future acceptance evidence, trace-based eval, and compliance reports. Node Runs are queryable through `GET /api/workflow-runs/:id/node-runs` and `GET /api/node-runs/:id`; Workers are queryable through `GET /api/workers` and `GET /api/workers/:id`. This suits local and prototype deployment, but not multi-instance concurrency. Service extraction should replace Store implementations without changing domain Services.
 
 ## Security Boundaries
 
@@ -67,6 +70,7 @@ The current implementation uses JSON files under `state/*`, atomic renames, and 
 ## Extension Points
 
 - Runtime Adapter: add a model or execution environment.
+- Spec Adapter / Planner: generate versioned Specs from natural language, templates, or external documents and recommend Workflows.
 - Source Adapter: integrate GitHub, Linear, Notion, manual input, or an internal system.
 - Tool Adapter: connect HTTP, MCP, or local deterministic tools.
 - Store Adapter: migrate local JSON to a database or object storage.

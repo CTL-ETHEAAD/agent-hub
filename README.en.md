@@ -82,8 +82,9 @@ Runtime data is stored under `state/`, which is excluded from Git by default.
 
 ## Current Status
 
-- Agents, Skills, Workflows, Tools, and Policies have versioned lifecycles.
+- Agents, Skills, Specs, Workflows, Tools, and Policies have versioned lifecycles.
 - Workflows support Agent, Tool, Condition, Parallel, Join, Subworkflow, Approval, and Feature nodes.
+- Workflow Runs can bind published Specs and persist `specId`, `specVersion`, and `specSnapshot`.
 - HTTP Tool, Claude Code Runtime, and OpenAI-compatible Runtime are available.
 - MCP registration exists; the complete MCP Runtime Adapter is not yet implemented.
 - Core domain contracts are available as TypeScript definitions under `src/types/`.

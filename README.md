@@ -82,8 +82,9 @@ npm run hub -- scheduler
 
 ## 当前状态
 
-- Agent、Skill、Workflow、Tool 和 Policy 均支持版本生命周期。
+- Agent、Skill、Spec、Workflow、Tool 和 Policy 均支持版本生命周期。
 - Workflow 支持 Agent、Tool、Condition、Parallel、Join、Subworkflow、Approval 和 Feature 节点。
+- Workflow Run 可绑定已发布 Spec，并保存 `specId`、`specVersion` 和 `specSnapshot`。
 - HTTP Tool、Claude Code Runtime、OpenAI-compatible Runtime 可用。
 - MCP 注册模型已有，完整 MCP Runtime Adapter 尚未完成。
 - 核心领域契约已在 `src/types/` 中提供 TypeScript 类型定义。

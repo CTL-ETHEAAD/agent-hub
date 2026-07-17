@@ -9,8 +9,9 @@ Agent Hub currently deploys as a single process, but most modules can already be
 | Agent Registry | `agentSchema.js`, `agentStore.js` | Yes | filesystem |
 | Agent Runtime | `agentService.js`, `agentRuntime.js` | Yes | Agent Store, Runtime Adapter, Trace |
 | Skill Registry | `skillSchema.js`, `skillStore.js` | Yes | filesystem |
+| Spec Hub | `specSchema.js`, `specStore.js` | Yes | filesystem |
 | Workflow Registry | `workflowSchema.js`, `workflowStore.js` | Yes | filesystem |
-| Workflow Runtime | `workflowService.js` | Mostly | Agent, Tool, Workflow Run Store; governance is not yet uniform across all nodes |
+| Workflow Runtime | `workflowService.js` | Mostly | Agent, Tool, Spec, Workflow Run Store; governance is not yet uniform across all nodes |
 | Tool Hub | `toolSchema.js`, `toolStore.js`, `toolService.js` | Yes | Policy, fetch, environment secrets |
 | Policy Engine | `policy/*` | Yes | Policy Store |
 | Sandbox Resolver | `sandbox/sandboxPolicy.js` | Yes | Policy/Agent/Workflow declarations |
@@ -22,7 +23,7 @@ Agent Hub currently deploys as a single process, but most modules can already be
 ## Dependency Direction
 
 ```text
-Schema / Store
+Schema / Store / Spec Hub
   → Domain Service
     → Runtime Adapter
       → Workflow / Orchestrator

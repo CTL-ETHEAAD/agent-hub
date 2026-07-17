@@ -39,6 +39,9 @@ export interface WorkflowRun {
   id: string;
   workflowId: string;
   workflowVersion: number;
+  specId?: string;
+  specVersion?: number;
+  specSnapshot?: JsonObject;
   status: RunStatus;
   input: JsonValue;
   output?: JsonValue;

@@ -103,6 +103,16 @@ import {
   readPolicy,
   updatePolicyDraft
 } from './policy/policyStore.js';
+import {
+  archiveSpec,
+  createSpec,
+  createSpecDraftVersion,
+  listSpecs,
+  listSpecVersions,
+  publishSpec,
+  readSpec,
+  updateSpecDraft
+} from './specStore.js';
 import { listTraces } from './trace/traceStore.js';
 import { initializeBuiltinAssets } from './builtinAssets.js';
 import { listNodeRuns, readNodeRun } from './nodeRunStore.js';
@@ -215,7 +225,15 @@ const server = createServer(async (req, res) => {
       if (action === 'clone' && req.method === 'POST') return json(res, await cloneWorkflow(workflowId, await readJson(req)), 201);
       if (action === 'publish' && req.method === 'POST') return json(res, await publishWorkflow(workflowId));
       if (action === 'new-version' && req.method === 'POST') return json(res, await createWorkflowDraftVersion(workflowId), 201);
-      if (action === 'runs' && req.method === 'POST') return json(res, await startWorkflowRun(workflowId, await readJson(req), { idempotencyKey: req.headers['idempotency-key'] || '' }), 202);
+      if (action === 'runs' && req.method === 'POST') {
+        const body = await readJson(req);
+        const hasRunEnvelope = body && typeof body === 'object' && !Array.isArray(body) && ('input' in body || 'specId' in body || 'specVersion' in body);
+        return json(res, await startWorkflowRun(workflowId, hasRunEnvelope ? body.input || {} : body, {
+          idempotencyKey: req.headers['idempotency-key'] || '',
+          specId: hasRunEnvelope ? body.specId || '' : '',
+          specVersion: hasRunEnvelope ? body.specVersion : undefined
+        }), 202);
+      }
       if (action === 'runs' && req.method === 'GET') return json(res, await listWorkflowRuns({ workflowId }));
     }
     const workflowRunMatch = url.pathname.match(/^\/api\/workflow-runs\/([^/]+)(?:\/([^/]+))?$/);
@@ -231,6 +249,18 @@ const server = createServer(async (req, res) => {
     }
     const nodeRunMatch = url.pathname.match(/^\/api\/node-runs\/([^/]+)$/);
     if (nodeRunMatch && req.method === 'GET') return json(res, await readNodeRun(nodeRunMatch[1]));
+
+    if (url.pathname === '/api/specs' && req.method === 'GET') return json(res, await listSpecs({ includeArchived: url.searchParams.get('includeArchived') === 'true' }));
+    if (url.pathname === '/api/specs' && req.method === 'POST') return json(res, await createSpec(await readJson(req)), 201);
+    const specMatch = url.pathname.match(/^\/api\/specs\/([^/]+)(?:\/([^/]+))?$/);
+    if (specMatch) {
+      const [, specId, action] = specMatch;
+      if (!action && req.method === 'GET') return json(res, { spec: await readSpec(specId), versions: await listSpecVersions(specId) });
+      if (!action && req.method === 'PATCH') return json(res, await updateSpecDraft(specId, await readJson(req)));
+      if (!action && req.method === 'DELETE') return json(res, await archiveSpec(specId));
+      if (action === 'publish' && req.method === 'POST') return json(res, await publishSpec(specId));
+      if (action === 'new-version' && req.method === 'POST') return json(res, await createSpecDraftVersion(specId), 201);
+    }
 
     if (url.pathname === '/api/workers' && req.method === 'GET') return json(res, await listWorkers({ status: url.searchParams.get('status') || undefined, role: url.searchParams.get('role') || undefined }));
     const workerMatch = url.pathname.match(/^\/api\/workers\/([^/]+)$/);
