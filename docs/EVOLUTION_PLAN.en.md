@@ -101,6 +101,8 @@ Exit criteria:
 
 ### Phase 4: Real Parallelism and Resource Scheduling (P1)
 
+Status: **In progress** (`feature/scheduler-resource-policy-v1`). Node Run scheduling metadata now supports priority and required capabilities. Worker claims use capability tags, active slots, and priority to select queued Node Runs, preventing incompatible or fully occupied Workers from taking work.
+
 Goal: make Parallel/Join controlled, genuine parallel execution.
 
 Scope:

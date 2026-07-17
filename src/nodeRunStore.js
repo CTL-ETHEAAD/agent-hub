@@ -23,7 +23,7 @@ export class NodeRunStoreError extends Error {
   }
 }
 
-export async function createNodeRun({ workflowRun, node, input = null, attempt = 1, maxAttempts = 1, idempotencyKey = '' }, root = NODE_RUNS_ROOT) {
+export async function createNodeRun({ workflowRun, node, input = null, attempt = 1, maxAttempts = 1, idempotencyKey = '', scheduling = null }, root = NODE_RUNS_ROOT) {
   if (idempotencyKey) {
     const existing = (await listNodeRuns({ workflowRunId: workflowRun.id }, root)).find((run) => run.idempotencyKey === idempotencyKey);
     if (existing) return structuredClone(existing);
@@ -41,6 +41,7 @@ export async function createNodeRun({ workflowRun, node, input = null, attempt =
     attempt,
     maxAttempts,
     idempotencyKey,
+    scheduling: normalizeScheduling(scheduling || node.scheduling || {}),
     input: structuredClone(input),
     inputRef: null,
     output: null,
@@ -78,7 +79,7 @@ export async function listNodeRuns({ workflowRunId, workflowId, nodeId, status }
     .filter((run) => !workflowId || run.workflowId === workflowId)
     .filter((run) => !nodeId || run.nodeId === nodeId)
     .filter((run) => !status || run.status === status)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .sort(compareNodeRuns);
 }
 
 export async function updateNodeRun(id, update, root = NODE_RUNS_ROOT) {
@@ -136,8 +137,9 @@ export async function claimNodeRun(id, { workerId, leaseMs = 30_000 } = {}, root
   return transitionNodeRun(id, 'claimed', { workerId, leaseExpiresAt }, root);
 }
 
-export async function claimNextNodeRun({ workerId, leaseMs = 30_000 } = {}, root = NODE_RUNS_ROOT) {
-  const queued = (await listNodeRuns({ status: 'queued' }, root)).reverse();
+export async function claimNextNodeRun({ workerId, leaseMs = 30_000, capabilityTags = [], availableSlots = 1 } = {}, root = NODE_RUNS_ROOT) {
+  if (availableSlots < 1) return null;
+  const queued = (await listNodeRuns({ status: 'queued' }, root)).filter((run) => canWorkerRun(run, capabilityTags));
   for (const run of queued) {
     try {
       return await claimNodeRun(run.id, { workerId, leaseMs }, root);
@@ -196,3 +198,21 @@ function assertRunId(id) {
 }
 
 function runPath(id, root) { return path.join(root, `${id}.json`); }
+
+function normalizeScheduling(value) {
+  return {
+    priority: Number.isInteger(value.priority) ? value.priority : 0,
+    requiredCapabilities: Array.isArray(value.requiredCapabilities) ? [...new Set(value.requiredCapabilities.filter((item) => typeof item === 'string'))].sort() : []
+  };
+}
+
+function canWorkerRun(run, capabilityTags) {
+  const tags = new Set(capabilityTags || []);
+  return (run.scheduling?.requiredCapabilities || []).every((tag) => tags.has(tag));
+}
+
+function compareNodeRuns(a, b) {
+  const priority = (b.scheduling?.priority || 0) - (a.scheduling?.priority || 0);
+  if (priority) return priority;
+  return a.createdAt.localeCompare(b.createdAt);
+}

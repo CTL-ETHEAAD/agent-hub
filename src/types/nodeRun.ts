@@ -47,6 +47,7 @@ export interface NodeRun {
   attempt: number;
   maxAttempts: number;
   idempotencyKey: string;
+  scheduling: NodeRunScheduling;
   input: JsonValue | null;
   inputRef: NodeRunRef | null;
   output: JsonValue | null;
@@ -60,4 +61,9 @@ export interface NodeRun {
   completedAt: string | null;
   durationMs: number | null;
   events: NodeRunEvent[];
+}
+
+export interface NodeRunScheduling {
+  priority: number;
+  requiredCapabilities: string[];
 }
