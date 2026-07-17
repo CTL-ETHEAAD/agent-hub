@@ -11,22 +11,32 @@ import { readTool } from './toolStore.js';
 import { commitFeature, createDraftPullRequest, pushFeature, waitForPullRequestChecks } from './deliveryService.js';
 import { appendTrace } from './trace/traceStore.js';
 import { cancelNodeRun, completeNodeRun, failNodeRun, setNodeRunInput, startNodeRun, waitNodeRun } from './nodeRunService.js';
+import { readSpec } from './specStore.js';
 
 export async function startWorkflowRun(workflowId, input, options = {}) {
   const workflow = await readWorkflow(workflowId, options.version, options.workflowsRoot);
   if (workflow.status === 'archived') throw domainError('Archived workflows cannot run.', 'WORKFLOW_ARCHIVED', 409);
   validateValueAgainstSchema(input, workflow.inputSchema, { label: 'input' });
+  const spec = await resolveRunSpec(options);
   await validateAgentNodes(workflow, options);
   await validateToolNodes(workflow, options);
   await validateSubworkflowNodes(workflow, options);
   if (options.idempotencyKey) {
-    const existing = (await listWorkflowRuns({ workflowId }, options.workflowRunsRoot)).find((candidate) => candidate.workflowVersion === workflow.version && candidate.idempotencyKey === options.idempotencyKey && !['failed', 'cancelled'].includes(candidate.status));
+    const existing = (await listWorkflowRuns({ workflowId }, options.workflowRunsRoot)).find((candidate) => candidate.workflowVersion === workflow.version && candidate.idempotencyKey === options.idempotencyKey && candidate.specId === (spec?.id || null) && candidate.specVersion === (spec?.version || null) && !['failed', 'cancelled'].includes(candidate.status));
     if (existing) return existing;
   }
-  let run = await createWorkflowRun({ workflow, input, idempotencyKey: options.idempotencyKey, parentRunId: options.parentRunId }, options.workflowRunsRoot);
+  let run = await createWorkflowRun({ workflow, input, idempotencyKey: options.idempotencyKey, parentRunId: options.parentRunId, spec }, options.workflowRunsRoot);
   run = await updateWorkflowRun(run.id, { status: 'running', startedAt: new Date().toISOString() }, options.workflowRunsRoot);
   void executeWorkflow(run.id, options);
   return run;
+}
+
+async function resolveRunSpec(options = {}) {
+  if (options.specSnapshot) return options.specSnapshot;
+  if (!options.specId) return null;
+  const spec = await readSpec(options.specId, options.specVersion, options.specsRoot);
+  if (spec.status !== 'published') throw domainError('Workflow runs can only bind published specs.', 'SPEC_NOT_PUBLISHED', 409);
+  return spec;
 }
 
 export async function executeWorkflow(runId, options = {}) {

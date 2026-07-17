@@ -11,12 +11,15 @@ export class WorkflowRunStoreError extends Error {
   constructor(message, code, status = 400) { super(message); this.code = code; this.status = status; }
 }
 
-export async function createWorkflowRun({ workflow, input, idempotencyKey = '', parentRunId = '' }, root = WORKFLOW_RUNS_ROOT) {
+export async function createWorkflowRun({ workflow, input, idempotencyKey = '', parentRunId = '', spec = null }, root = WORKFLOW_RUNS_ROOT) {
   const now = new Date().toISOString();
   const run = {
     id: `wrun_${randomUUID()}`,
     workflowId: workflow.id,
     workflowVersion: workflow.version,
+    specId: spec?.id || null,
+    specVersion: spec?.version || null,
+    specSnapshot: spec ? structuredClone(spec) : null,
     idempotencyKey,
     parentRunId,
     workflowSnapshot: structuredClone(workflow),

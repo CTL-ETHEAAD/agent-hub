@@ -8,10 +8,11 @@ import { createWorkflow } from '../src/workflowStore.js';
 import { createTool } from '../src/toolStore.js';
 import { decideWorkflowApproval, readWorkflowRun, resumeWorkflowFromFailure, retryWorkflowRun, startWorkflowRun } from '../src/workflowService.js';
 import { readNodeRun } from '../src/nodeRunStore.js';
+import { createSpec, publishSpec } from '../src/specStore.js';
 
 async function setup(t, workflow) {
   const base = await mkdtemp(path.join(os.tmpdir(), 'workflow-service-')); t.after(() => rm(base, { recursive: true, force: true }));
-  const options = { agentsRoot: path.join(base, 'agents'), agentRunsRoot: path.join(base, 'agent-runs'), agentLogsRoot: path.join(base, 'logs'), workflowsRoot: path.join(base, 'workflows'), workflowRunsRoot: path.join(base, 'workflow-runs'), nodeRunsRoot: path.join(base, 'node-runs'), tracesRoot: path.join(base, 'traces'), pollIntervalMs: 1 };
+  const options = { agentsRoot: path.join(base, 'agents'), agentRunsRoot: path.join(base, 'agent-runs'), agentLogsRoot: path.join(base, 'logs'), workflowsRoot: path.join(base, 'workflows'), workflowRunsRoot: path.join(base, 'workflow-runs'), nodeRunsRoot: path.join(base, 'node-runs'), specsRoot: path.join(base, 'specs'), tracesRoot: path.join(base, 'traces'), pollIntervalMs: 1 };
   await createAgent({ id: 'echo-agent', name: 'Echo', systemPrompt: 'Echo.', inputSchema: { type: 'object', required: ['text'], properties: { text: { type: 'string' } } }, outputSchema: { type: 'object', required: ['text'], properties: { text: { type: 'string' } } } }, options.agentsRoot);
   await createWorkflow(workflow, options.workflowsRoot);
   return options;
@@ -162,6 +163,41 @@ test('returns the existing run for the same idempotency key', async (t) => {
   await waitForWorkflow(first.id, options);
   const second = await startWorkflowRun('linear-flow', { text: 'once' }, { ...options, idempotencyKey: 'request-1' });
   assert.equal(second.id, first.id);
+});
+
+test('binds a published spec snapshot to a workflow run', async (t) => {
+  const options = await setup(t, linear);
+  await createSpec({
+    id: 'linear-spec',
+    name: 'Linear Spec',
+    goal: 'Echo text through a workflow.',
+    requirements: [{ id: 'req-echo', title: 'Echo', description: 'The workflow echoes the input text.', priority: 'must' }],
+    acceptanceCriteria: [{ id: 'ac-echo', description: 'The output text matches the input text.', verification: 'test' }]
+  }, options.specsRoot);
+  await publishSpec('linear-spec', options.specsRoot);
+  options.startRuntime = async ({ input }) => ({ pid: 1, cancel() {}, done: Promise.resolve({ code: 0, output: input }) });
+
+  const started = await startWorkflowRun('linear-flow', { text: 'spec-bound' }, { ...options, specId: 'linear-spec', specVersion: 1 });
+  const done = await waitForWorkflow(started.id, options);
+  assert.equal(done.specId, 'linear-spec');
+  assert.equal(done.specVersion, 1);
+  assert.equal(done.specSnapshot.goal, 'Echo text through a workflow.');
+});
+
+test('rejects workflow runs bound to draft specs', async (t) => {
+  const options = await setup(t, linear);
+  await createSpec({
+    id: 'draft-spec',
+    name: 'Draft Spec',
+    goal: 'Stay in draft.',
+    requirements: [{ id: 'req-draft', title: 'Draft', description: 'The spec remains draft.', priority: 'must' }],
+    acceptanceCriteria: [{ id: 'ac-draft', description: 'The run cannot bind this spec.', verification: 'manual' }]
+  }, options.specsRoot);
+
+  await assert.rejects(
+    startWorkflowRun('linear-flow', { text: 'blocked' }, { ...options, specId: 'draft-spec' }),
+    (error) => error.code === 'SPEC_NOT_PUBLISHED'
+  );
 });
 
 async function waitForWorkflow(id, options) {
