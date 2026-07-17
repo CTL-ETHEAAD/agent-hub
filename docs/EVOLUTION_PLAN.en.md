@@ -138,6 +138,8 @@ Exit criteria:
 
 ### Phase 6: Dynamic Supervisor and Sub-agents (P2)
 
+Status: **In progress** (`feature/delegation-governance-v1`). Implemented capabilities include a governed Agent delegation service. Agent Runs now carry `rootRunId`, `parentRunId`, `depth`, and delegation reason. Delegation enforces maximum depth, child-run limits per parent, and an allowed-agent list, with Run Tree query and tree cancellation entry points.
+
 Goal: add governed dynamic delegation inside deterministic Workflows.
 
 Scope:
@@ -156,6 +158,8 @@ Exit criteria:
 - Run Tree traces every delegation, result, and cost.
 
 ### Phase 7: Distributed Runtime and Production Governance (P2)
+
+Status: **In progress** (`feature/delegation-governance-v1`). Worker Registry now stores capability attestation. A governance snapshot service and Admin API summarize Agent/Workflow Runs, Worker attestation, Trace types, and baseline regression gate results, leaving replacement points for database Stores, Queue/Event Bus, RBAC, and audit export.
 
 Goal: evolve local multiprocess execution into a multi-host, operable platform.
 

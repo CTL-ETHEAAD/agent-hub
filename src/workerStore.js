@@ -16,7 +16,7 @@ export class WorkerStoreError extends Error {
   }
 }
 
-export async function registerWorker({ id, role = 'worker', capabilityTags = [], concurrencySlots = 1, leaseMs = 30_000, pid = process.pid, hostname = os.hostname() } = {}, root = WORKERS_ROOT) {
+export async function registerWorker({ id, role = 'worker', capabilityTags = [], concurrencySlots = 1, leaseMs = 30_000, pid = process.pid, hostname = os.hostname(), attestation = null } = {}, root = WORKERS_ROOT) {
   assertWorkerId(id);
   const now = new Date().toISOString();
   const worker = {
@@ -25,6 +25,7 @@ export async function registerWorker({ id, role = 'worker', capabilityTags = [],
     hostname,
     role,
     capabilityTags: [...new Set(capabilityTags)].sort(),
+    attestation: normalizeAttestation(attestation, capabilityTags),
     concurrencySlots,
     status: 'online',
     registeredAt: now,
@@ -113,3 +114,17 @@ function assertWorkerId(id) {
 }
 
 function workerPath(id, root) { return path.join(root, `${id}.json`); }
+
+function normalizeAttestation(attestation, capabilityTags) {
+  const value = attestation && typeof attestation === 'object' ? attestation : {};
+  const declared = Array.isArray(value.capabilityTags) ? value.capabilityTags : capabilityTags;
+  return {
+    subject: typeof value.subject === 'string' ? value.subject : '',
+    issuer: typeof value.issuer === 'string' ? value.issuer : 'local',
+    issuedAt: value.issuedAt || new Date().toISOString(),
+    expiresAt: value.expiresAt || null,
+    capabilityTags: [...new Set((declared || []).filter((item) => typeof item === 'string'))].sort(),
+    signature: typeof value.signature === 'string' ? value.signature : '',
+    verified: value.verified === true
+  };
+}

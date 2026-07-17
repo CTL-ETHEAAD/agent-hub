@@ -16,7 +16,14 @@ export async function startAgentRun(agentId, input, options = {}) {
     throw error;
   }
   validateValueAgainstSchema(input, agent.inputSchema, { label: 'input' });
-  let run = await createAgentRun({ agent, input }, options.runsRoot, options.logsRoot);
+  let run = await createAgentRun({
+    agent,
+    input,
+    rootRunId: options.rootRunId || '',
+    parentRunId: options.parentRunId || '',
+    depth: options.depth || 0,
+    delegationReason: options.delegationReason || ''
+  }, options.runsRoot, options.logsRoot);
   await recordTrace(run, 'agent.run.queued', { agentId: agent.id, agentVersion: agent.version }, options);
   try {
     const runtime = await (options.startRuntime || startAgentRuntime)({ agent, input, run });
