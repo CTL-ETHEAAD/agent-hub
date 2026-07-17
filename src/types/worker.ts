@@ -6,10 +6,21 @@ export interface WorkerRegistration {
   hostname: string;
   role: 'worker' | 'scheduler';
   capabilityTags: string[];
+  attestation: WorkerAttestation;
   concurrencySlots: number;
   status: WorkerStatus;
   registeredAt: string;
   heartbeatAt: string;
   leaseMs: number;
   activeNodeRunIds: string[];
+}
+
+export interface WorkerAttestation {
+  subject: string;
+  issuer: string;
+  issuedAt: string;
+  expiresAt: string | null;
+  capabilityTags: string[];
+  signature: string;
+  verified: boolean;
 }

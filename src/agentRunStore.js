@@ -21,7 +21,7 @@ export class AgentRunStoreError extends Error {
   }
 }
 
-export async function createAgentRun({ agent, input }, root = AGENT_RUNS_ROOT, logsRoot = AGENT_RUN_LOGS_ROOT) {
+export async function createAgentRun({ agent, input, rootRunId = '', parentRunId = '', depth = 0, delegationReason = '' }, root = AGENT_RUNS_ROOT, logsRoot = AGENT_RUN_LOGS_ROOT) {
   const now = new Date().toISOString();
   const run = {
     id: `run_${randomUUID()}`,
@@ -34,6 +34,10 @@ export async function createAgentRun({ agent, input }, root = AGENT_RUNS_ROOT, l
     error: null,
     runtime: agent.runtime.provider,
     model: agent.runtime.model,
+    rootRunId,
+    parentRunId,
+    depth,
+    delegationReason,
     logPath: path.join(logsRoot, ''),
     pid: null,
     createdAt: now,

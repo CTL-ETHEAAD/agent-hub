@@ -107,6 +107,8 @@ import { listTraces } from './trace/traceStore.js';
 import { initializeBuiltinAssets } from './builtinAssets.js';
 import { listNodeRuns, readNodeRun } from './nodeRunStore.js';
 import { listWorkers, readWorker } from './workerStore.js';
+import { cancelAgentRunTree, delegateAgentRun, getAgentRunTree } from './delegationService.js';
+import { getGovernanceSnapshot } from './governanceService.js';
 
 const PORT = Number(process.env.PORT || 4317);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -127,6 +129,7 @@ const server = createServer(async (req, res) => {
       return json(res, await listRepos());
     }
     if (url.pathname === '/api/system/initialize-builtin-assets' && req.method === 'POST') return json(res, await initializeBuiltinAssets(), 201);
+    if (url.pathname === '/api/admin/governance-snapshot' && req.method === 'GET') return json(res, await getGovernanceSnapshot());
 
     if ((url.pathname === '/api/work-items' || url.pathname === '/api/issues') && req.method === 'GET') {
       return json(res, await listIssues());
@@ -176,6 +179,9 @@ const server = createServer(async (req, res) => {
       if (action === 'log' && req.method === 'GET') return text(res, await readAgentRunLog(runId));
       if (action === 'traces' && req.method === 'GET') return json(res, await listTraces(runId));
       if (action === 'cancel' && req.method === 'POST') return json(res, await cancelAgentRun(runId));
+      if (action === 'delegate' && req.method === 'POST') return json(res, await delegateAgentRun(runId, await readJson(req)), 202);
+      if (action === 'tree' && req.method === 'GET') return json(res, await getAgentRunTree(runId));
+      if (action === 'cancel-tree' && req.method === 'POST') return json(res, await cancelAgentRunTree(runId));
     }
 
     if (url.pathname === '/api/skills' && req.method === 'GET') return json(res, await listSkills({ includeArchived: url.searchParams.get('includeArchived') === 'true' }));
