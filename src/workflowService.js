@@ -10,6 +10,7 @@ import { executeTool } from './toolService.js';
 import { readTool } from './toolStore.js';
 import { commitFeature, createDraftPullRequest, pushFeature, waitForPullRequestChecks } from './deliveryService.js';
 import { appendTrace } from './trace/traceStore.js';
+import { cancelNodeRun, completeNodeRun, failNodeRun, setNodeRunInput, startNodeRun, waitNodeRun } from './nodeRunService.js';
 
 export async function startWorkflowRun(workflowId, input, options = {}) {
   const workflow = await readWorkflow(workflowId, options.version, options.workflowsRoot);
@@ -39,7 +40,7 @@ export async function executeWorkflow(runId, options = {}) {
 
   try {
     while (node) {
-      run = await markNodeRunning(runId, node, options.workflowRunsRoot);
+      run = await markNodeRunning(runId, node, options);
       enforceWorkflowBudget(run, workflow, node);
       let output;
       let nextEdge;
@@ -48,17 +49,17 @@ export async function executeWorkflow(runId, options = {}) {
         nextEdge = outgoing.get(node.id)?.[0];
       } else if (node.type === 'agent') {
         const mappedInput = resolveMapping(node.input, context);
-        await setNodeInput(runId, node.id, mappedInput, options.workflowRunsRoot);
+        await setNodeInput(runId, node.id, mappedInput, options);
         output = await runAgentNode(runId, node, mappedInput, options);
         nextEdge = outgoing.get(node.id)?.[0];
       } else if (node.type === 'tool') {
         const mappedInput = resolveMapping(node.input, context);
-        await setNodeInput(runId, node.id, mappedInput, options.workflowRunsRoot);
+        await setNodeInput(runId, node.id, mappedInput, options);
         output = await runToolNode(runId, node, mappedInput, options);
         nextEdge = outgoing.get(node.id)?.[0];
       } else if (node.type === 'subworkflow') {
         const mappedInput = resolveMapping(node.input, context);
-        await setNodeInput(runId, node.id, mappedInput, options.workflowRunsRoot);
+        await setNodeInput(runId, node.id, mappedInput, options);
         output = await runSubworkflowNode(runId, workflow, node, mappedInput, options);
         nextEdge = outgoing.get(node.id)?.[0];
       } else if (node.type === 'parallel') {
@@ -70,7 +71,7 @@ export async function executeWorkflow(runId, options = {}) {
         output = Object.fromEntries(results.map((result, index) => [branches[index].label || `branch${index + 1}`, result]));
         context.nodes[node.id] = { output };
         context.nodes[node.joinId] = { output };
-        await markNodeSucceeded(runId, node.id, output, options.workflowRunsRoot);
+        await markNodeSucceeded(runId, node.id, output, options);
         node = nodeMap.get(node.joinId);
         continue;
       } else if (node.type === 'join') {
@@ -81,18 +82,19 @@ export async function executeWorkflow(runId, options = {}) {
         output = evaluateCondition(value, node.operator, node.compare);
         nextEdge = (outgoing.get(node.id) || []).find((edge) => edge.when === output);
       } else if (node.type === 'approval') {
-        await updateWorkflowRun(runId, (current) => ({ nodes: { ...current.nodes, [node.id]: { ...current.nodes[node.id], status: 'waiting', input: { prompt: node.prompt } } } }), options.workflowRunsRoot);
+        const latest = await updateWorkflowRun(runId, (current) => ({ nodes: { ...current.nodes, [node.id]: { ...current.nodes[node.id], status: 'waiting', input: { prompt: node.prompt } } } }), options.workflowRunsRoot);
+        await waitNodeRun(latest.nodes[node.id]?.nodeRunId, { prompt: node.prompt }, options);
         return pauseWorkflowRun(runId, node.id, options.workflowRunsRoot);
       } else if (node.type === 'feature') {
         output = await executeWithRetry(runId, node, () => executeFeatureNode(node, context), options.workflowRunsRoot);
         nextEdge = outgoing.get(node.id)?.[0];
       } else if (node.type === 'end') {
         output = resolveMapping(node.output ?? '$input', context);
-        await markNodeSucceeded(runId, node.id, output, options.workflowRunsRoot);
+        await markNodeSucceeded(runId, node.id, output, options);
         return finishWorkflowRun(runId, 'succeeded', { output }, options.workflowRunsRoot);
       }
       context.nodes[node.id] = { output };
-      await markNodeSucceeded(runId, node.id, output, options.workflowRunsRoot);
+      await markNodeSucceeded(runId, node.id, output, options);
       const latest = await readWorkflowRun(runId, options.workflowRunsRoot);
       if (latest.status === 'cancelled') return latest;
       node = nextEdge ? nodeMap.get(nextEdge.to) : null;
@@ -102,7 +104,7 @@ export async function executeWorkflow(runId, options = {}) {
     const current = await readWorkflowRun(runId, options.workflowRunsRoot);
     if (current.status === 'cancelled') return current;
     const alreadyFailed = Object.values(current.nodes).some((item) => item.status === 'failed');
-    if (!alreadyFailed && current.currentNodeId) await markNodeFailed(runId, current.currentNodeId, error, options.workflowRunsRoot);
+    if (!alreadyFailed && current.currentNodeId) await markNodeFailed(runId, current.currentNodeId, error, options);
     return finishWorkflowRun(runId, 'failed', { error: serialize(error) }, options.workflowRunsRoot);
   }
 }
@@ -114,11 +116,11 @@ export async function decideWorkflowApproval(runId, { approved, note = '' } = {}
   const node = run.workflowSnapshot.nodes.find((item) => item.id === nodeId);
   const edge = run.workflowSnapshot.edges.find((item) => item.from === nodeId);
   if (!approved) {
-    await markNodeFailed(runId, nodeId, domainError(note || 'Approval rejected.', 'WORKFLOW_APPROVAL_REJECTED', 409), options.workflowRunsRoot);
+    await markNodeFailed(runId, nodeId, domainError(note || 'Approval rejected.', 'WORKFLOW_APPROVAL_REJECTED', 409), options);
     return finishWorkflowRun(runId, 'failed', { error: { code: 'WORKFLOW_APPROVAL_REJECTED', message: note || 'Approval rejected.' } }, options.workflowRunsRoot);
   }
   const output = { approved: true, note, decidedAt: new Date().toISOString() };
-  await markNodeSucceeded(runId, node.id, output, options.workflowRunsRoot);
+  await markNodeSucceeded(runId, node.id, output, options);
   await updateWorkflowRun(runId, (current) => ({ status: 'running', currentNodeId: null, events: [...(current.events || []), { type: 'approval.approved', nodeId, note, at: output.decidedAt }] }), options.workflowRunsRoot);
   void executeWorkflow(runId, { ...options, resumeFrom: edge.to });
   return readWorkflowRun(runId, options.workflowRunsRoot);
@@ -166,7 +168,9 @@ export async function cancelWorkflowRun(runId, options = {}) {
   const run = await readWorkflowRun(runId, options.workflowRunsRoot);
   if (!['running', 'queued', 'waiting_approval'].includes(run.status)) throw domainError('Workflow run is not active.', 'WORKFLOW_RUN_NOT_ACTIVE', 409);
   const agentRunId = run.currentNodeId ? run.nodes[run.currentNodeId]?.agentRunId : null;
+  const nodeRunId = run.currentNodeId ? run.nodes[run.currentNodeId]?.nodeRunId : null;
   if (agentRunId) await cancelAgentRun(agentRunId, { runsRoot: options.agentRunsRoot }).catch(() => {});
+  if (nodeRunId) await cancelNodeRun(nodeRunId, options).catch(() => {});
   return finishWorkflowRun(runId, 'cancelled', { error: { code: 'WORKFLOW_CANCELLED', message: 'Cancelled by user.' } }, options.workflowRunsRoot);
 }
 
@@ -248,19 +252,19 @@ async function executeParallelBranch(runId, startId, joinId, workflow, context, 
   let node = nodeMap.get(startId);
   let lastOutput;
   while (node && node.id !== joinId) {
-    await markNodeRunning(runId, node, options.workflowRunsRoot);
+    await markNodeRunning(runId, node, options);
     try {
       let output; let nextEdge;
-      if (node.type === 'agent') { const input = resolveMapping(node.input, context); await setNodeInput(runId, node.id, input, options.workflowRunsRoot); output = await runAgentNode(runId, node, input, options); nextEdge = outgoing.get(node.id)?.[0]; }
-      else if (node.type === 'tool') { const input = resolveMapping(node.input, context); await setNodeInput(runId, node.id, input, options.workflowRunsRoot); output = await runToolNode(runId, node, input, options); nextEdge = outgoing.get(node.id)?.[0]; }
-      else if (node.type === 'subworkflow') { const input = resolveMapping(node.input, context); await setNodeInput(runId, node.id, input, options.workflowRunsRoot); output = await runSubworkflowNode(runId, workflow, node, input, options); nextEdge = outgoing.get(node.id)?.[0]; }
+      if (node.type === 'agent') { const input = resolveMapping(node.input, context); await setNodeInput(runId, node.id, input, options); output = await runAgentNode(runId, node, input, options); nextEdge = outgoing.get(node.id)?.[0]; }
+      else if (node.type === 'tool') { const input = resolveMapping(node.input, context); await setNodeInput(runId, node.id, input, options); output = await runToolNode(runId, node, input, options); nextEdge = outgoing.get(node.id)?.[0]; }
+      else if (node.type === 'subworkflow') { const input = resolveMapping(node.input, context); await setNodeInput(runId, node.id, input, options); output = await runSubworkflowNode(runId, workflow, node, input, options); nextEdge = outgoing.get(node.id)?.[0]; }
       else if (node.type === 'condition') { output = evaluateCondition(resolveReference(node.value, context), node.operator, node.compare); nextEdge = (outgoing.get(node.id) || []).find((edge) => edge.when === output); }
       else throw domainError(`Node type ${node.type} is not supported inside a parallel branch.`, 'PARALLEL_NODE_UNSUPPORTED', 422);
       context.nodes[node.id] = { output }; lastOutput = output;
-      await markNodeSucceeded(runId, node.id, output, options.workflowRunsRoot);
+      await markNodeSucceeded(runId, node.id, output, options);
       node = nextEdge ? nodeMap.get(nextEdge.to) : null;
     } catch (error) {
-      await markNodeFailed(runId, node.id, error, options.workflowRunsRoot);
+      await markNodeFailed(runId, node.id, error, options);
       throw error;
     }
   }
@@ -389,10 +393,45 @@ async function appendAudit(id, event, root) {
   return updateWorkflowRun(id, (run) => ({ events: [...(run.events || []), event] }), root);
 }
 
-async function markNodeRunning(id, node, root) { const now = new Date().toISOString(); return updateWorkflowRun(id, (run) => ({ currentNodeId: node.id, nodes: { ...run.nodes, [node.id]: { ...run.nodes[node.id], status: 'running', startedAt: now } }, events: [...(run.events || []), { type: 'node.started', nodeId: node.id, nodeType: node.type, at: now }] }), root); }
-async function setNodeInput(id, nodeId, input, root) { return updateWorkflowRun(id, (run) => ({ nodes: { ...run.nodes, [nodeId]: { ...run.nodes[nodeId], input } } }), root); }
-async function markNodeSucceeded(id, nodeId, output, root) { const now = new Date().toISOString(); return updateWorkflowRun(id, (run) => ({ currentNodeId: null, nodes: { ...run.nodes, [nodeId]: { ...run.nodes[nodeId], status: 'succeeded', output, completedAt: now, durationMs: run.nodes[nodeId].startedAt ? Math.max(0, new Date(now) - new Date(run.nodes[nodeId].startedAt)) : null } }, events: [...(run.events || []), { type: 'node.succeeded', nodeId, at: now }] }), root); }
-async function markNodeFailed(id, nodeId, error, root) { const now = new Date().toISOString(); return updateWorkflowRun(id, (run) => ({ nodes: { ...run.nodes, [nodeId]: { ...run.nodes[nodeId], status: 'failed', error: serialize(error), completedAt: now, durationMs: run.nodes[nodeId].startedAt ? Math.max(0, new Date(now) - new Date(run.nodes[nodeId].startedAt)) : null } }, events: [...(run.events || []), { type: 'node.failed', nodeId, error: serialize(error), at: now }] }), root); }
+async function markNodeRunning(id, node, options) {
+  const workflowRun = await readWorkflowRun(id, options.workflowRunsRoot);
+  const maxAttempts = node.retry?.maxAttempts || 1;
+  const nodeRun = await startNodeRun({ workflowRun, node, attempt: 1, maxAttempts }, options);
+  const now = new Date().toISOString();
+  return updateWorkflowRun(id, (run) => ({
+    currentNodeId: node.id,
+    nodes: { ...run.nodes, [node.id]: { ...run.nodes[node.id], status: 'running', nodeRunId: nodeRun.id, startedAt: now } },
+    events: [...(run.events || []), { type: 'node.started', nodeId: node.id, nodeType: node.type, nodeRunId: nodeRun.id, at: now }]
+  }), options.workflowRunsRoot);
+}
+
+async function setNodeInput(id, nodeId, input, options) {
+  const run = await updateWorkflowRun(id, (current) => ({ nodes: { ...current.nodes, [nodeId]: { ...current.nodes[nodeId], input } } }), options.workflowRunsRoot);
+  await setNodeRunInput(run.nodes[nodeId]?.nodeRunId, input, options);
+  return run;
+}
+
+async function markNodeSucceeded(id, nodeId, output, options) {
+  const now = new Date().toISOString();
+  const run = await updateWorkflowRun(id, (current) => ({
+    currentNodeId: null,
+    nodes: { ...current.nodes, [nodeId]: { ...current.nodes[nodeId], status: 'succeeded', output, completedAt: now, durationMs: current.nodes[nodeId].startedAt ? Math.max(0, new Date(now) - new Date(current.nodes[nodeId].startedAt)) : null } },
+    events: [...(current.events || []), { type: 'node.succeeded', nodeId, nodeRunId: current.nodes[nodeId]?.nodeRunId || null, at: now }]
+  }), options.workflowRunsRoot);
+  await completeNodeRun(run.nodes[nodeId]?.nodeRunId, output, options);
+  return run;
+}
+
+async function markNodeFailed(id, nodeId, error, options) {
+  const now = new Date().toISOString();
+  const serialized = serialize(error);
+  const run = await updateWorkflowRun(id, (current) => ({
+    nodes: { ...current.nodes, [nodeId]: { ...current.nodes[nodeId], status: 'failed', error: serialized, completedAt: now, durationMs: current.nodes[nodeId].startedAt ? Math.max(0, new Date(now) - new Date(current.nodes[nodeId].startedAt)) : null } },
+    events: [...(current.events || []), { type: 'node.failed', nodeId, nodeRunId: current.nodes[nodeId]?.nodeRunId || null, error: serialized, at: now }]
+  }), options.workflowRunsRoot);
+  await failNodeRun(run.nodes[nodeId]?.nodeRunId, error, options);
+  return run;
+}
 function serialize(error) { return { code: error.code || 'WORKFLOW_RUN_FAILED', message: error.message, details: error.details || [] }; }
 function domainError(message, code, status) { const error = new Error(message); error.code = code; error.status = status; return error; }
 

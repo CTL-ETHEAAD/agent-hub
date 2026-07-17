@@ -105,6 +105,7 @@ import {
 } from './policy/policyStore.js';
 import { listTraces } from './trace/traceStore.js';
 import { initializeBuiltinAssets } from './builtinAssets.js';
+import { listNodeRuns, readNodeRun } from './nodeRunStore.js';
 
 const PORT = Number(process.env.PORT || 4317);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -214,12 +215,15 @@ const server = createServer(async (req, res) => {
     if (workflowRunMatch) {
       const [, runId, action] = workflowRunMatch;
       if (!action && req.method === 'GET') return json(res, await readWorkflowRun(runId));
+      if (action === 'node-runs' && req.method === 'GET') return json(res, await listNodeRuns({ workflowRunId: runId }));
       if (action === 'approval' && req.method === 'POST') return json(res, await decideWorkflowApproval(runId, await readJson(req)));
       if (action === 'retry' && req.method === 'POST') return json(res, await retryWorkflowRun(runId), 202);
       if (action === 'resume' && req.method === 'POST') return json(res, await resumeWorkflowFromFailure(runId), 202);
       if (action === 'traces' && req.method === 'GET') return json(res, await listTraces(runId));
       if (action === 'cancel' && req.method === 'POST') return json(res, await cancelWorkflowRun(runId));
     }
+    const nodeRunMatch = url.pathname.match(/^\/api\/node-runs\/([^/]+)$/);
+    if (nodeRunMatch && req.method === 'GET') return json(res, await readNodeRun(nodeRunMatch[1]));
 
     if (url.pathname === '/api/policies' && req.method === 'GET') return json(res, await listPolicies({ includeArchived: url.searchParams.get('includeArchived') === 'true' }));
     if (url.pathname === '/api/policies' && req.method === 'POST') return json(res, await createPolicy(await readJson(req)), 201);
