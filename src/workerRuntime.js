@@ -13,6 +13,7 @@ import {
   assignNodeRunToWorker,
   heartbeatWorker,
   markStaleWorkers,
+  readWorker,
   registerWorker,
   releaseNodeRunFromWorker
 } from './workerStore.js';
@@ -27,11 +28,17 @@ export async function runSchedulerOnce(options = {}) {
 
 export async function runWorkerOnce(options = {}) {
   const worker = await ensureWorker(options);
-  await heartbeatWorker(worker.id, {}, options.workersRoot);
+  const current = await heartbeatWorker(worker.id, {}, options.workersRoot);
   const slots = Math.max(1, Number(options.concurrencySlots || worker.concurrencySlots || 1));
+  const availableSlots = Math.max(0, slots - (current.activeNodeRunIds || []).length);
   const results = [];
-  for (let index = 0; index < slots; index += 1) {
-    const claimed = await claimNextNodeRun({ workerId: worker.id, leaseMs: options.leaseMs || worker.leaseMs || 30_000 }, options.nodeRunsRoot);
+  for (let index = 0; index < availableSlots; index += 1) {
+    const claimed = await claimNextNodeRun({
+      workerId: worker.id,
+      leaseMs: options.leaseMs || worker.leaseMs || 30_000,
+      capabilityTags: current.capabilityTags || worker.capabilityTags || DEFAULT_CAPABILITIES,
+      availableSlots
+    }, options.nodeRunsRoot);
     if (!claimed) break;
     results.push(await executeClaimedNodeRun(claimed, { ...options, workerId: worker.id }));
   }
@@ -124,6 +131,17 @@ async function waitForAgentRun(id, options) {
 
 async function ensureWorker(options) {
   const workerId = options.workerId || `worker:${os.hostname()}:${process.pid}`;
+  const existing = await readWorker(workerId, options.workersRoot).catch((error) => {
+    if (error.code === 'WORKER_NOT_FOUND') return null;
+    throw error;
+  });
+  if (existing) {
+    return heartbeatWorker(workerId, {
+      capabilityTags: options.capabilityTags || existing.capabilityTags || DEFAULT_CAPABILITIES,
+      concurrencySlots: options.concurrencySlots || existing.concurrencySlots || 1,
+      leaseMs: options.leaseMs || existing.leaseMs || 30_000
+    }, options.workersRoot);
+  }
   return registerWorker({
     id: workerId,
     role: 'worker',

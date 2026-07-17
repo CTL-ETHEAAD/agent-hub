@@ -59,6 +59,53 @@ test('worker respects local concurrency slots', async (t) => {
   assert.ok(result.results.every((run) => run.status === 'succeeded'));
 });
 
+test('worker claims higher-priority compatible node runs first', async (t) => {
+  const options = await setup(t);
+  const low = await createNodeRun({ workflowRun, node: { id: 'low', type: 'agent' }, input: { text: 'low' }, scheduling: { priority: 1, requiredCapabilities: ['node:agent'] } }, options.nodeRunsRoot);
+  const high = await createNodeRun({ workflowRun, node: { id: 'high', type: 'agent' }, input: { text: 'high' }, scheduling: { priority: 10, requiredCapabilities: ['node:agent'] } }, options.nodeRunsRoot);
+  const result = await runWorkerOnce({
+    ...options,
+    workerId: 'worker-priority',
+    capabilityTags: ['node:agent'],
+    handlers: { agent: async (run) => run.input }
+  });
+  assert.equal(result.results.length, 1);
+  assert.equal(result.results[0].id, high.id);
+  assert.equal((await readNodeRun(high.id, options.nodeRunsRoot)).status, 'succeeded');
+  assert.equal((await readNodeRun(low.id, options.nodeRunsRoot)).status, 'queued');
+});
+
+test('worker skips node runs that require missing capabilities', async (t) => {
+  const options = await setup(t);
+  const tool = await createNodeRun({ workflowRun, node: { id: 'tool-a', type: 'tool' }, input: {}, scheduling: { priority: 10, requiredCapabilities: ['node:tool'] } }, options.nodeRunsRoot);
+  const agent = await createNodeRun({ workflowRun, node: { id: 'agent-a', type: 'agent' }, input: { text: 'ok' }, scheduling: { priority: 1, requiredCapabilities: ['node:agent'] } }, options.nodeRunsRoot);
+  const result = await runWorkerOnce({
+    ...options,
+    workerId: 'worker-agent-only',
+    capabilityTags: ['node:agent'],
+    handlers: { agent: async (run) => run.input }
+  });
+  assert.equal(result.results.length, 1);
+  assert.equal(result.results[0].id, agent.id);
+  assert.equal((await readNodeRun(tool.id, options.nodeRunsRoot)).status, 'queued');
+});
+
+test('worker does not claim when active slots are full', async (t) => {
+  const options = await setup(t);
+  await registerWorker({ id: 'worker-full', concurrencySlots: 1, capabilityTags: ['node:agent'] }, options.workersRoot);
+  await updateWorker('worker-full', { activeNodeRunIds: ['nrun_11111111-1111-4111-8111-111111111111'] }, options.workersRoot);
+  const queued = await createNodeRun({ workflowRun, node: { id: 'agent-a', type: 'agent' }, input: { text: 'wait' }, scheduling: { requiredCapabilities: ['node:agent'] } }, options.nodeRunsRoot);
+  const result = await runWorkerOnce({
+    ...options,
+    workerId: 'worker-full',
+    capabilityTags: ['node:agent'],
+    concurrencySlots: 1,
+    handlers: { agent: async (run) => run.input }
+  });
+  assert.equal(result.results.length, 0);
+  assert.equal((await readNodeRun(queued.id, options.nodeRunsRoot)).status, 'queued');
+});
+
 test('scheduler interrupts expired node run leases and marks stale workers', async (t) => {
   const options = await setup(t);
   const run = await createNodeRun({ workflowRun, node: { id: 'tool-a', type: 'tool' }, input: {} }, options.nodeRunsRoot);
