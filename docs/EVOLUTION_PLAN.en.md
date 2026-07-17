@@ -62,6 +62,8 @@ Exit criteria:
 
 ### Phase 2: Persist Node Runs (P0)
 
+Status: **In progress** (`feature/node-run-persistence-v1`). Implemented capabilities include an independent Node Run model, JSON Store, state machine, idempotent creation, the first worker claim/lease protocol, and restart reconciliation. The current single-process Workflow Runtime now mirrors node start, input, waiting, success, failure, and cancellation into Node Runs. Read-only runtime timelines are exposed through `GET /api/workflow-runs/:id/node-runs` and `GET /api/node-runs/:id`.
+
 Goal: turn in-process node calls into recoverable tasks.
 
 Scope:
@@ -198,12 +200,12 @@ P2:                       Phase 6 → Phase 7
 
 ## 6. Immediate Milestone
 
-The next milestone is **Phase 1: Standardize Building-block Contracts**:
+The current milestone is **Phase 2: Persist Node Runs**:
 
-1. Define Node Contract v1.
-2. Add ports and field mappings.
-3. Implement the Workflow pre-publish static checker.
-4. Display connection errors, permissions, and risks on the canvas.
-5. Add contract regression tests for built-in Workflows.
+1. Define the independent Node Run schema and store.
+2. Mirror Workflow node state into Node Runs.
+3. Support idempotency keys, attempts, input snapshots, output references, and error snapshots.
+4. Add claim, lease, renew, complete, and interrupted recovery semantics.
+5. Expose node runtime timeline APIs so Phase 3 workers can take over execution.
 
-Keep the current single-process Runtime during Phase 1 so orchestration semantics and execution topology do not change at the same time.
+Keep the current single-process Runtime during Phase 2. Phase 3 moves Node Run consumption into independent workers.

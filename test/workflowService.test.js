@@ -7,10 +7,11 @@ import { createAgent } from '../src/agentStore.js';
 import { createWorkflow } from '../src/workflowStore.js';
 import { createTool } from '../src/toolStore.js';
 import { decideWorkflowApproval, readWorkflowRun, resumeWorkflowFromFailure, retryWorkflowRun, startWorkflowRun } from '../src/workflowService.js';
+import { readNodeRun } from '../src/nodeRunStore.js';
 
 async function setup(t, workflow) {
   const base = await mkdtemp(path.join(os.tmpdir(), 'workflow-service-')); t.after(() => rm(base, { recursive: true, force: true }));
-  const options = { agentsRoot: path.join(base, 'agents'), agentRunsRoot: path.join(base, 'agent-runs'), agentLogsRoot: path.join(base, 'logs'), workflowsRoot: path.join(base, 'workflows'), workflowRunsRoot: path.join(base, 'workflow-runs'), tracesRoot: path.join(base, 'traces'), pollIntervalMs: 1 };
+  const options = { agentsRoot: path.join(base, 'agents'), agentRunsRoot: path.join(base, 'agent-runs'), agentLogsRoot: path.join(base, 'logs'), workflowsRoot: path.join(base, 'workflows'), workflowRunsRoot: path.join(base, 'workflow-runs'), nodeRunsRoot: path.join(base, 'node-runs'), tracesRoot: path.join(base, 'traces'), pollIntervalMs: 1 };
   await createAgent({ id: 'echo-agent', name: 'Echo', systemPrompt: 'Echo.', inputSchema: { type: 'object', required: ['text'], properties: { text: { type: 'string' } } }, outputSchema: { type: 'object', required: ['text'], properties: { text: { type: 'string' } } } }, options.agentsRoot);
   await createWorkflow(workflow, options.workflowsRoot);
   return options;
@@ -26,6 +27,10 @@ test('runs a linear agent workflow and records node output', async (t) => {
   assert.equal(run.status, 'succeeded');
   assert.deepEqual(run.output, { text: 'hello' });
   assert.equal(run.nodes.echo.status, 'succeeded');
+  const nodeRun = await readNodeRun(run.nodes.echo.nodeRunId, options.nodeRunsRoot);
+  assert.equal(nodeRun.status, 'succeeded');
+  assert.deepEqual(nodeRun.input, { text: 'hello' });
+  assert.deepEqual(nodeRun.output, { text: 'hello' });
 });
 
 test('routes a condition through the matching branch', async (t) => {
@@ -128,7 +133,7 @@ test('records the failed parallel branch and requires a full retry', async (t) =
 
 test('runs a reusable subworkflow and returns its output', async (t) => {
   const base = await mkdtemp(path.join(os.tmpdir(), 'subworkflow-')); t.after(() => rm(base, { recursive: true, force: true }));
-  const options = { agentsRoot: path.join(base, 'agents'), agentRunsRoot: path.join(base, 'agent-runs'), agentLogsRoot: path.join(base, 'logs'), workflowsRoot: path.join(base, 'workflows'), workflowRunsRoot: path.join(base, 'workflow-runs'), tracesRoot: path.join(base, 'traces'), pollIntervalMs: 1 };
+  const options = { agentsRoot: path.join(base, 'agents'), agentRunsRoot: path.join(base, 'agent-runs'), agentLogsRoot: path.join(base, 'logs'), workflowsRoot: path.join(base, 'workflows'), workflowRunsRoot: path.join(base, 'workflow-runs'), nodeRunsRoot: path.join(base, 'node-runs'), tracesRoot: path.join(base, 'traces'), pollIntervalMs: 1 };
   await createAgent({ id: 'echo-agent', name: 'Echo', systemPrompt: 'Echo.', inputSchema: { type: 'object', required: ['text'], properties: { text: { type: 'string' } } }, outputSchema: { type: 'object', required: ['text'], properties: { text: { type: 'string' } } } }, options.agentsRoot);
   await createWorkflow({ id: 'child-flow', name: 'Child', inputSchema: { type: 'object', required: ['text'], properties: { text: { type: 'string' } } }, nodes: [{ id: 'start', type: 'start' }, { id: 'echo', type: 'agent', agentId: 'echo-agent', input: { text: '$input.text' } }, { id: 'end', type: 'end', output: '$nodes.echo.output' }], edges: [{ from: 'start', to: 'echo' }, { from: 'echo', to: 'end' }] }, options.workflowsRoot);
   await createWorkflow({ id: 'parent-flow', name: 'Parent', inputSchema: { type: 'object', required: ['text'], properties: { text: { type: 'string' } } }, nodes: [{ id: 'start', type: 'start' }, { id: 'child', type: 'subworkflow', workflowId: 'child-flow', input: { text: '$input.text' } }, { id: 'end', type: 'end', output: '$nodes.child.output' }], edges: [{ from: 'start', to: 'child' }, { from: 'child', to: 'end' }] }, options.workflowsRoot);

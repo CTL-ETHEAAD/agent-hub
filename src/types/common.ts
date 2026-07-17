@@ -14,6 +14,16 @@ export type RunStatus =
   | 'cancelled'
   | 'interrupted';
 
+export type NodeRunStatus =
+  | 'queued'
+  | 'claimed'
+  | 'running'
+  | 'waiting'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'interrupted';
+
 export interface VersionedAsset {
   id: string;
   name: string;
