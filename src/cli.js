@@ -15,10 +15,12 @@ import {
   stopIssue
 } from './orchestrator.js';
 import { listIssues, readIssue } from './stateStore.js';
+import { runSchedulerOnce, runWorkerLoop, runWorkerOnce } from './workerRuntime.js';
 
 const command = process.argv[2] || 'list';
 const arg = process.argv[3];
 const flags = new Set(process.argv.slice(4));
+if (arg?.startsWith('--')) flags.add(arg);
 
 try {
   if (command === 'list') {
@@ -60,6 +62,10 @@ try {
     await loopCli(arg);
   } else if (command === 'proceed-ready') {
     await printProceedReady();
+  } else if (command === 'worker') {
+    await workerCli();
+  } else if (command === 'scheduler') {
+    await schedulerCli();
   } else {
     printHelp();
     process.exitCode = 1;
@@ -203,6 +209,31 @@ async function printProceedReady() {
   })));
 }
 
+async function workerCli() {
+  const options = {
+    workerId: getFlagValue('--id') || undefined,
+    concurrencySlots: Number(getFlagValue('--concurrency') || 1),
+    leaseMs: Number(getFlagValue('--lease-ms') || 30_000),
+    intervalMs: Number(getFlagValue('--interval-ms') || 1000)
+  };
+  if (flags.has('--once')) {
+    const result = await runWorkerOnce(options);
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  await runWorkerLoop(options);
+}
+
+async function schedulerCli() {
+  const result = await runSchedulerOnce({
+    staleAfterMs: Number(getFlagValue('--stale-after-ms') || 60_000)
+  });
+  console.log(JSON.stringify({
+    interruptedNodeRuns: result.interruptedNodeRuns.length,
+    staleWorkers: result.staleWorkers.length
+  }, null, 2));
+}
+
 async function followFile(filePath) {
   let offset = 0;
   while (true) {
@@ -231,6 +262,11 @@ function requireTicket(ticketId) {
   }
 }
 
+function getFlagValue(name) {
+  const match = [...flags].find((flag) => flag.startsWith(`${name}=`));
+  return match ? match.slice(name.length + 1) : '';
+}
+
 function printHelp() {
   console.log(`Usage:
   npm run hub -- list
@@ -242,5 +278,7 @@ function printHelp() {
   npm run hub -- takeover demo-task-1
   npm run hub -- clean-worktree demo-task-1 --force
   npm run hub -- proceed demo-task-1 [--allow-dirty]
+  npm run hub -- worker [--once] [--id=worker-local] [--concurrency=2]
+  npm run hub -- scheduler
 `);
 }

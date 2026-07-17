@@ -81,6 +81,8 @@ Exit criteria:
 
 ### Phase 3: Local Multiprocess Workers (P0)
 
+Status: **In progress** (`feature/local-worker-runtime-v1`). Implemented capabilities include a Worker Registry, heartbeats, capability tags, concurrency slots, the first Node Run claim/lease/renew/complete protocol, expired lease recovery, and local CLI commands: `agent-hub worker` and `agent-hub scheduler`. Workers now support pluggable handlers and built-in deterministic handlers for start, condition, and end nodes. Moving Agent and Tool nodes into Worker handlers is the next step.
+
 Goal: move execution out of the Server process without changing user Workflows.
 
 Scope:
