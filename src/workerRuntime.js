@@ -9,6 +9,7 @@ import {
 import { completeNodeRun, failNodeRun } from './nodeRunService.js';
 import { readAgentRun, startAgentRun } from './agentService.js';
 import { executeTool } from './toolService.js';
+import { prepareNodeRunSandbox, releaseNodeRunSandbox } from './sandbox/sandboxRuntime.js';
 import {
   assignNodeRunToWorker,
   heartbeatWorker,
@@ -59,14 +60,17 @@ export async function runWorkerLoop(options = {}) {
 async function executeClaimedNodeRun(nodeRun, options) {
   await assignNodeRunToWorker(options.workerId, nodeRun.id, options.workersRoot);
   let running = nodeRun;
+  let sandboxSnapshot = null;
   try {
     running = await transitionNodeRun(nodeRun.id, 'running', {}, options.nodeRunsRoot);
     if (options.renewBeforeExecute !== false) await renewNodeRunLease(running.id, { workerId: options.workerId, leaseMs: options.leaseMs || 30_000 }, options.nodeRunsRoot);
-    const output = await executeNodeRunHandler(running, options);
+    sandboxSnapshot = await prepareNodeRunSandbox(running, options);
+    const output = await executeNodeRunHandler(running, { ...options, sandboxSnapshot });
     return await completeNodeRun(running.id, output, options);
   } catch (error) {
     return failNodeRun(running.id, error, options);
   } finally {
+    if (sandboxSnapshot) await releaseNodeRunSandbox(sandboxSnapshot, running, options).catch(() => {});
     await releaseNodeRunFromWorker(options.workerId, nodeRun.id, options.workersRoot).catch(() => {});
   }
 }

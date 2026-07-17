@@ -119,6 +119,8 @@ Exit criteria:
 
 ### Phase 5: Worktree, Sandbox, and Network Isolation (P1)
 
+Status: **In progress** (`feature/worktree-sandbox-boundary-v1`). Implemented capabilities include a Worktree Lease Service with exclusive locks, release, and expiry recovery. Workers resolve a sandbox snapshot before executing Node Runs and acquire a worktree lease for isolated, workspace-write, or git-writing code nodes so two implementation nodes do not write to the same workspace.
+
 Goal: create real execution boundaries for code changes and external calls.
 
 Scope:
