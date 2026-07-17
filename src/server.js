@@ -106,6 +106,7 @@ import {
 import { listTraces } from './trace/traceStore.js';
 import { initializeBuiltinAssets } from './builtinAssets.js';
 import { listNodeRuns, readNodeRun } from './nodeRunStore.js';
+import { listWorkers, readWorker } from './workerStore.js';
 
 const PORT = Number(process.env.PORT || 4317);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -224,6 +225,10 @@ const server = createServer(async (req, res) => {
     }
     const nodeRunMatch = url.pathname.match(/^\/api\/node-runs\/([^/]+)$/);
     if (nodeRunMatch && req.method === 'GET') return json(res, await readNodeRun(nodeRunMatch[1]));
+
+    if (url.pathname === '/api/workers' && req.method === 'GET') return json(res, await listWorkers({ status: url.searchParams.get('status') || undefined, role: url.searchParams.get('role') || undefined }));
+    const workerMatch = url.pathname.match(/^\/api\/workers\/([^/]+)$/);
+    if (workerMatch && req.method === 'GET') return json(res, await readWorker(workerMatch[1]));
 
     if (url.pathname === '/api/policies' && req.method === 'GET') return json(res, await listPolicies({ includeArchived: url.searchParams.get('includeArchived') === 'true' }));
     if (url.pathname === '/api/policies' && req.method === 'POST') return json(res, await createPolicy(await readJson(req)), 201);

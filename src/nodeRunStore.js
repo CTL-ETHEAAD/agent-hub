@@ -136,6 +136,18 @@ export async function claimNodeRun(id, { workerId, leaseMs = 30_000 } = {}, root
   return transitionNodeRun(id, 'claimed', { workerId, leaseExpiresAt }, root);
 }
 
+export async function claimNextNodeRun({ workerId, leaseMs = 30_000 } = {}, root = NODE_RUNS_ROOT) {
+  const queued = (await listNodeRuns({ status: 'queued' }, root)).reverse();
+  for (const run of queued) {
+    try {
+      return await claimNodeRun(run.id, { workerId, leaseMs }, root);
+    } catch (error) {
+      if (error.code !== 'NODE_RUN_TRANSITION_INVALID') throw error;
+    }
+  }
+  return null;
+}
+
 export async function renewNodeRunLease(id, { workerId, leaseMs = 30_000 } = {}, root = NODE_RUNS_ROOT) {
   return updateNodeRun(id, (run) => {
     if (run.status !== 'claimed' && run.status !== 'running') throw new NodeRunStoreError('Only claimed or running node runs can renew leases.', 'NODE_RUN_LEASE_RENEW_INVALID', 409);
@@ -153,6 +165,16 @@ export async function reconcileNodeRuns(root = NODE_RUNS_ROOT) {
   return Promise.all(runs.filter((run) => ['claimed', 'running'].includes(run.status)).map((run) => transitionNodeRun(run.id, 'interrupted', {
     error: { code: 'NODE_RUN_INTERRUPTED', message: 'The service restarted before the node run completed.' }
   }, root)));
+}
+
+export async function recoverExpiredNodeRuns({ now = new Date() } = {}, root = NODE_RUNS_ROOT) {
+  const runs = await listNodeRuns({}, root);
+  return Promise.all(runs
+    .filter((run) => ['claimed', 'running'].includes(run.status))
+    .filter((run) => run.leaseExpiresAt && new Date(run.leaseExpiresAt) <= now)
+    .map((run) => transitionNodeRun(run.id, 'interrupted', {
+      error: { code: 'NODE_RUN_LEASE_EXPIRED', message: 'The worker lease expired before the node run completed.' }
+    }, root)));
 }
 
 async function atomicWrite(filePath, value) {

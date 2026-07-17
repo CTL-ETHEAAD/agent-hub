@@ -17,8 +17,10 @@ flowchart TD
   WF --> A["Agent Runtime Adapters"]
   WF --> T["Tool Runtime"]
   WF --> AP["Approval Gate"]
+  WF --> W["Local Worker Runtime"]
   A --> TR["Trace + Audit"]
   T --> TR
+  W --> TR
   WI --> D["Delivery Service"]
   WI --> ST["Local JSON State"]
   WF --> ST
@@ -35,6 +37,7 @@ Workflows use `contractVersion: 1`. `workflowNodeContract` defines node ports, e
 - Work Item: task identity, source, repository, state, worktree, and artifacts.
 - Agent: prompt, schema, provider, skills, tools, permissions, and limits.
 - Node Run: one recoverable execution of a Workflow node, including status, attempt, idempotency key, input snapshot, output reference, error, worker lease, and event timeline.
+- Worker: local execution process identity, capability tags, concurrency slots, heartbeat, lease, and active Node Runs.
 - Skill: reusable instructions and output contract without direct runtime permissions.
 - Workflow: a versioned DAG connecting Agents, Tools, conditions, parallel branches, approvals, and delivery.
 - Tool: a deterministic external capability whose secrets are referenced through environment variables.
@@ -45,13 +48,13 @@ Workflows use `contractVersion: 1`. `workflowNodeContract` defines node ports, e
 
 Agent Run: `validate input → resolve adapter → execute → validate output → persist run → append trace`.
 
-Current Workflow Run: `resolve node → create Node Run → map input → execute node → persist output → choose edge → finish/pause`. The single-process Runtime still performs execution, but node state is mirrored into independent Node Runs so Scheduler and Worker processes can take over later. Tool Nodes perform Policy checks. Uniform Policy and Sandbox enforcement across all nodes is the target mainline.
+Current Workflow Run: `resolve node → create Node Run → map input → execute node → persist output → choose edge → finish/pause`. The single-process Runtime still executes full Workflows, but Node Runs can now be claimed, leased, renewed, and completed by local Workers. `agent-hub worker` consumes queued Node Runs, while `agent-hub scheduler` recovers expired leases and stale workers. Tool Nodes perform Policy checks. Uniform Policy and Sandbox enforcement across all nodes is the target mainline.
 
 Work Item: `intake → plan gate → isolated implementation → validation/review → approval → delivery`. This is the current execution path; new capabilities should preferably be composed through Workflow Agent Nodes.
 
 ## Persistence
 
-The current implementation uses JSON files under `state/*`, atomic renames, and per-ID serialized writes. Agent Runs, Workflow Runs, and Node Runs are persisted separately. Node Runs are queryable through `GET /api/workflow-runs/:id/node-runs` and `GET /api/node-runs/:id`. This suits local and prototype deployment, but not multi-instance concurrency. Service extraction should replace Store implementations without changing domain Services.
+The current implementation uses JSON files under `state/*`, atomic renames, and per-ID serialized writes. Agent Runs, Workflow Runs, Node Runs, and Workers are persisted separately. Node Runs are queryable through `GET /api/workflow-runs/:id/node-runs` and `GET /api/node-runs/:id`; Workers are queryable through `GET /api/workers` and `GET /api/workers/:id`. This suits local and prototype deployment, but not multi-instance concurrency. Service extraction should replace Store implementations without changing domain Services.
 
 ## Security Boundaries
 

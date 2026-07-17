@@ -67,6 +67,8 @@ npm run typecheck
 npm run check
 npm run hub -- list
 npm run hub -- show demo-task-1
+npm run hub -- worker --once
+npm run hub -- scheduler
 ```
 
 Runtime data is stored under `state/`, which is excluded from Git by default.

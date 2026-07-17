@@ -67,6 +67,8 @@ npm run typecheck
 npm run check
 npm run hub -- list
 npm run hub -- show demo-task-1
+npm run hub -- worker --once
+npm run hub -- scheduler
 ```
 
 运行数据保存在 `state/`，该目录默认不进入 Git。
