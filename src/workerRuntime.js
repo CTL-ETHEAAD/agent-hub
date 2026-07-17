@@ -7,6 +7,8 @@ import {
   transitionNodeRun
 } from './nodeRunStore.js';
 import { completeNodeRun, failNodeRun } from './nodeRunService.js';
+import { readAgentRun, startAgentRun } from './agentService.js';
+import { executeTool } from './toolService.js';
 import {
   assignNodeRunToWorker,
   heartbeatWorker,
@@ -15,7 +17,7 @@ import {
   releaseNodeRunFromWorker
 } from './workerStore.js';
 
-const DEFAULT_CAPABILITIES = ['node:start', 'node:condition', 'node:end'];
+const DEFAULT_CAPABILITIES = ['node:start', 'node:condition', 'node:end', 'node:agent', 'node:tool'];
 
 export async function runSchedulerOnce(options = {}) {
   const interruptedNodeRuns = await recoverExpiredNodeRuns({ now: options.now || new Date() }, options.nodeRunsRoot);
@@ -67,7 +69,57 @@ async function executeNodeRunHandler(nodeRun, options) {
   if (injected) return injected(nodeRun, options);
   if (nodeRun.nodeType === 'start' || nodeRun.nodeType === 'end') return structuredClone(nodeRun.input);
   if (nodeRun.nodeType === 'condition') return evaluateConditionNode(nodeRun.nodeSnapshot, nodeRun.input);
+  if (nodeRun.nodeType === 'agent') return executeAgentNodeRun(nodeRun, options);
+  if (nodeRun.nodeType === 'tool') return executeToolNodeRun(nodeRun, options);
   throw workerError(`No worker handler is registered for node type ${nodeRun.nodeType}.`, 'NODE_HANDLER_UNSUPPORTED', 501);
+}
+
+async function executeAgentNodeRun(nodeRun, options) {
+  const node = nodeRun.nodeSnapshot;
+  if (!node.agentId) throw workerError('Agent node is missing agentId.', 'NODE_AGENT_ID_MISSING', 422);
+  const agentRun = await startAgentRun(node.agentId, nodeRun.input || {}, {
+    version: node.agentVersion,
+    agentsRoot: options.agentsRoot,
+    runsRoot: options.agentRunsRoot,
+    logsRoot: options.agentLogsRoot,
+    tracesRoot: options.tracesRoot,
+    startRuntime: options.startRuntime
+  });
+  const completed = await waitForAgentRun(agentRun.id, options);
+  if (completed.status !== 'succeeded') throw workerError(completed.error?.message || 'Agent node failed.', completed.error?.code || 'NODE_AGENT_FAILED', 500);
+  return completed.output;
+}
+
+async function executeToolNodeRun(nodeRun, options) {
+  const node = nodeRun.nodeSnapshot;
+  if (!node.toolId) throw workerError('Tool node is missing toolId.', 'NODE_TOOL_ID_MISSING', 422);
+  const result = await executeTool(node.toolId, nodeRun.input || {}, {
+    version: node.toolVersion,
+    toolsRoot: options.toolsRoot,
+    policiesRoot: options.policiesRoot,
+    policies: options.policies,
+    fetchImpl: options.fetchImpl,
+    env: options.env,
+    mode: 'workflow',
+    compatibilityMode: options.policyCompatibilityMode !== false,
+    runContext: {
+      runId: nodeRun.workflowRunId,
+      nodeId: nodeRun.nodeId,
+      workflowId: nodeRun.workflowId,
+      userId: options.userId || 'user_local'
+    }
+  });
+  return result.output;
+}
+
+async function waitForAgentRun(id, options) {
+  const deadline = Date.now() + (options.agentRunTimeoutMs || 30 * 60 * 1000);
+  while (Date.now() < deadline) {
+    const run = await readAgentRun(id, options.agentRunsRoot);
+    if (['succeeded', 'failed', 'cancelled'].includes(run.status)) return run;
+    await delay(options.pollIntervalMs || 25);
+  }
+  throw workerError(`Agent run ${id} timed out.`, 'NODE_AGENT_TIMEOUT', 408);
 }
 
 async function ensureWorker(options) {

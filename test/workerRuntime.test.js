@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { createAgent } from '../src/agentStore.js';
 import { createNodeRun, readNodeRun, transitionNodeRun, updateNodeRun } from '../src/nodeRunStore.js';
+import { createTool } from '../src/toolStore.js';
 import { runSchedulerOnce, runWorkerOnce } from '../src/workerRuntime.js';
 import { listWorkers, registerWorker, updateWorker } from '../src/workerStore.js';
 
@@ -18,7 +20,12 @@ async function setup(t) {
   t.after(() => rm(base, { recursive: true, force: true }));
   return {
     nodeRunsRoot: path.join(base, 'node-runs'),
-    workersRoot: path.join(base, 'workers')
+    workersRoot: path.join(base, 'workers'),
+    agentsRoot: path.join(base, 'agents'),
+    agentRunsRoot: path.join(base, 'agent-runs'),
+    agentLogsRoot: path.join(base, 'agent-logs'),
+    toolsRoot: path.join(base, 'tools'),
+    tracesRoot: path.join(base, 'traces')
   };
 }
 
@@ -68,12 +75,64 @@ test('scheduler interrupts expired node run leases and marks stale workers', asy
 
 test('worker fails unsupported node types without crashing', async (t) => {
   const options = await setup(t);
-  const run = await createNodeRun({ workflowRun, node: { id: 'tool-a', type: 'tool' }, input: {} }, options.nodeRunsRoot);
+  const run = await createNodeRun({ workflowRun, node: { id: 'child-a', type: 'subworkflow' }, input: {} }, options.nodeRunsRoot);
   const result = await runWorkerOnce({ ...options, workerId: 'worker-unsupported' });
   assert.equal(result.results.length, 1);
   const failed = await readNodeRun(run.id, options.nodeRunsRoot);
   assert.equal(failed.status, 'failed');
   assert.equal(failed.error.code, 'NODE_HANDLER_UNSUPPORTED');
+});
+
+test('worker executes an agent node through the agent service', async (t) => {
+  const options = await setup(t);
+  await createAgent({
+    id: 'echo-agent',
+    name: 'Echo',
+    systemPrompt: 'Echo.',
+    inputSchema: { type: 'object', required: ['text'], properties: { text: { type: 'string' } } },
+    outputSchema: { type: 'object', required: ['text'], properties: { text: { type: 'string' } } }
+  }, options.agentsRoot);
+  const run = await createNodeRun({
+    workflowRun,
+    node: { id: 'agent-a', type: 'agent', agentId: 'echo-agent' },
+    input: { text: 'from worker' }
+  }, options.nodeRunsRoot);
+  const result = await runWorkerOnce({
+    ...options,
+    workerId: 'worker-agent',
+    startRuntime: async ({ input }) => ({ pid: 1, cancel() {}, done: Promise.resolve({ code: 0, output: input }) }),
+    pollIntervalMs: 1
+  });
+  assert.equal(result.results.length, 1);
+  const completed = await readNodeRun(run.id, options.nodeRunsRoot);
+  assert.equal(completed.status, 'succeeded');
+  assert.deepEqual(completed.output, { text: 'from worker' });
+});
+
+test('worker executes a tool node through the tool service', async (t) => {
+  const options = await setup(t);
+  await createTool({
+    id: 'lookup-tool',
+    name: 'Lookup',
+    type: 'http',
+    config: { url: 'https://api.example.com/items/{{id}}', method: 'GET', allowedHosts: ['api.example.com'] },
+    inputSchema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
+    outputSchema: { type: 'object', required: ['found'], properties: { found: { type: 'boolean' } } }
+  }, options.toolsRoot);
+  const run = await createNodeRun({
+    workflowRun,
+    node: { id: 'tool-a', type: 'tool', toolId: 'lookup-tool' },
+    input: { id: '42' }
+  }, options.nodeRunsRoot);
+  const result = await runWorkerOnce({
+    ...options,
+    workerId: 'worker-tool',
+    fetchImpl: async () => ({ ok: true, status: 200, headers: { get: () => 'application/json' }, text: async () => '{"found":true}' })
+  });
+  assert.equal(result.results.length, 1);
+  const completed = await readNodeRun(run.id, options.nodeRunsRoot);
+  assert.equal(completed.status, 'succeeded');
+  assert.deepEqual(completed.output, { found: true });
 });
 
 async function updateStaleWorker(id, workersRoot) {
