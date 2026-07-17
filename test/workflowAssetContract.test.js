@@ -14,6 +14,7 @@ const resolver = {
 test('resolves referenced assets and captures schemas', async () => {
   const result = await analyzeWorkflowAssets({ nodes: [{ id: 'plan', type: 'agent', agentId: 'planner', input: { request: '$input.request' } }] }, resolver);
   assert.deepEqual(result.errors, []);
+  assert.equal(result.resolvedSchemas.plan.version, 1);
   assert.equal(result.resolvedSchemas.plan.outputSchema.properties.plan.type, 'string');
 });
 

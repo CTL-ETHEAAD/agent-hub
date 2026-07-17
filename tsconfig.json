@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/types/**/*.ts", "src/workflow*Contract.ts"]
+  "include": ["src/types/**/*.ts", "src/workflow*Contract.ts", "src/schemaCompatibility.ts"]
 }

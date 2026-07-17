@@ -49,3 +49,16 @@ test('rejects duplicate agents and published version overwrite', async (t) => {
   await publishAgent('code-reviewer', root);
   await assert.rejects(publishAgent('code-reviewer', root), (error) => error.code === 'AGENT_NOT_FOUND');
 });
+
+test('persists compatibility metadata for a breaking agent version', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'agents-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await createAgent(definition(), root);
+  await publishAgent('code-reviewer', root);
+  await createDraftVersion('code-reviewer', root);
+  await updateDraft('code-reviewer', { inputSchema: { type: 'object', required: ['repository'], properties: { repository: { type: 'string' } } } }, root);
+  const published = await publishAgent('code-reviewer', root);
+  assert.equal(published.compatibility.previousVersion, 1);
+  assert.equal(published.compatibility.breaking, true);
+  assert.equal((await readAgent('code-reviewer', 2, root)).compatibility.changes[0].kind, 'required-added');
+});

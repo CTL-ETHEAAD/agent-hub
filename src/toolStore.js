@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/pro
 import path from 'node:path';
 import { STATE_ROOT } from './stateStore.js';
 import { validateTool } from './toolSchema.js';
+import { analyzeSchemaCompatibility } from './schemaCompatibility.js';
 
 export const TOOLS_ROOT = process.env.AGENT_HUB_TOOLS_ROOT || path.join(STATE_ROOT, 'tools');
 const queues = new Map();
@@ -51,7 +52,11 @@ export async function publishTool(id, root = TOOLS_ROOT) {
   return queue(id, async () => {
     const current = validateTool(await read(draftPath(id, root), id));
     if (await exists(versionPath(id, current.version, root))) throw new ToolStoreError('Tool version already exists.', 'TOOL_VERSION_EXISTS', 409);
-    const published = { ...current, status: 'published', publishedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const versions = await versionNumbers(id, root);
+    const previous = versions.length ? await read(versionPath(id, versions.at(-1), root), id) : null;
+    const now = new Date().toISOString();
+    const compatibility = analyzeSchemaCompatibility(previous, current, now);
+    const published = { ...current, compatibility, status: 'published', publishedAt: now, updatedAt: now };
     await atomicWrite(versionPath(id, current.version, root), published);
     await unlink(draftPath(id, root));
     await unlink(archivePath(id, root)).catch(() => {});
@@ -65,7 +70,8 @@ export async function createToolDraftVersion(id, root = TOOLS_ROOT) {
     const versions = await versionNumbers(id, root);
     if (!versions.length) throw new ToolStoreError(`Tool ${id} was not found.`, 'TOOL_NOT_FOUND', 404);
     const latest = await read(versionPath(id, versions.at(-1), root), id);
-    const draft = { ...latest, version: latest.version + 1, status: 'draft', publishedAt: null, updatedAt: new Date().toISOString() };
+    const { compatibility: _compatibility, ...definition } = latest;
+    const draft = { ...definition, version: latest.version + 1, status: 'draft', publishedAt: null, updatedAt: new Date().toISOString() };
     await atomicWrite(draftPath(id, root), draft);
     await unlink(archivePath(id, root)).catch(() => {});
     return draft;
@@ -74,7 +80,8 @@ export async function createToolDraftVersion(id, root = TOOLS_ROOT) {
 
 export async function cloneTool(id, { id: newId, name } = {}, root = TOOLS_ROOT) {
   const source = await readTool(id, undefined, root);
-  return createTool({ ...source, id: newId, name: name || `${source.name} Copy`, createdAt: undefined, updatedAt: undefined }, root);
+  const { compatibility: _compatibility, ...definition } = source;
+  return createTool({ ...definition, id: newId, name: name || `${source.name} Copy`, createdAt: undefined, updatedAt: undefined }, root);
 }
 
 export async function archiveTool(id, root = TOOLS_ROOT) {
